@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "2.0.0",
+  "strictness": "standard",
+  "laneAllowlists": {
+    "app-ui": [
+      "app/**"
+    ],
+    "engine-finance": [
+      "core/**",
+      "processing/**"
+    ],
+    "ops-quality": [
+      ".github/**",
+      "docs/**",
+      "scripts/**",
+      "*.md",
+      "LICENSE",
+      ".gitignore"
+    ]
+  },
+  "criticalGroups": [
+    {
+      "name": "shared-governance",
+      "description": "Shared governance and documentation boundaries",
+      "patterns": [
+        "AGENTS.md",
+        "README.md",
+        "CONTEXT.md",
+        "MEMORIADASIA.md",
+        "CONTRIBUTING.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        ".gitignore",
+        "requirements.txt",
+        "main.py",
+        "docs/**",
+        ".github/**"
+      ],
+      "ownerLane": "ops-quality",
+      "allowedLanes": [
+        "app-ui",
+        "engine-finance",
+        "ops-quality"
+      ],
+      "minimumRisk": "shared",
+      "requireDraft": true,
+      "requireCompatibility": false
+    },
+    {
+      "name": "critical-bootstrap",
+      "description": "Setup and bootstrap-sensitive paths",
+      "patterns": [
+        ".github/workflows/**",
+        ".github/guardrails/**",
+        ".github/governance.config.yaml",
+        "scripts/bootstrap-governance.ps1",
+        "scripts/bootstrap-governance.sh",
+        "scripts/worktree_create.ps1",
+        "scripts/worktree_status.ps1",
+        "scripts/worktree_remove.ps1",
+        "scripts/pr_complete.ps1"
+      ],
+      "ownerLane": "ops-quality",
+      "allowedLanes": [
+        "ops-quality"
+      ],
+      "minimumRisk": "shared",
+      "requireDraft": true,
+      "requireCompatibility": false
+    },
+    {
+      "name": "critical-runtime",
+      "description": "Core runtime execution paths",
+      "patterns": [
+        "core/**",
+        "processing/**"
+      ],
+      "ownerLane": "engine-finance",
+      "allowedLanes": [
+        "engine-finance"
+      ],
+      "minimumRisk": "shared",
+      "requireDraft": true,
+      "requireCompatibility": false
+    },
+    {
+      "name": "critical-contract",
+      "description": "Public API and compatibility-sensitive paths",
+      "patterns": [
+        "core/conta_map.py",
+        "core/utils.py",
+        "processing/pipeline.py"
+      ],
+      "ownerLane": "engine-finance",
+      "allowedLanes": [
+        "engine-finance"
+      ],
+      "minimumRisk": "contract-sensitive",
+      "requireDraft": true,
+      "requireCompatibility": true
+    }
+  ],
+  "disallowedDomainMixes": [
+    {
+      "name": "app-ui-with-engine-runtime",
+      "left": [
+        "app/**"
+      ],
+      "right": [
+        "core/**",
+        "processing/**"
+      ]
+    }
+  ]
+}

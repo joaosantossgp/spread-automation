@@ -104,3 +104,16 @@ edite apenas `DRE_SPREAD_MAP` em `core/utils.py`.
 
 - Contexto técnico e arquitetura: `CONTEXT.md`
 - Memória de decisões e validações: `MEMORIADASIA.md`
+
+## Governança de Trabalho
+
+- Contrato operacional: `AGENTS.md`
+- Configuração de governança: `.github/governance.config.yaml`
+- Política de paths e riscos: `.github/guardrails/path-policy.json`
+- Runbook operacional: `docs/governance/operators-runbook.md`
+- Recuperação e rollback: `docs/governance/rollback-recovery.md`
+
+Scripts úteis:
+- Bootstrap dry-run/apply: `scripts/bootstrap-governance.ps1` e `scripts/bootstrap-governance.sh`
+- Worktree create/status/remove: `scripts/worktree_create.ps1`, `scripts/worktree_status.ps1`, `scripts/worktree_remove.ps1`
+- Merge operacional de PR: `scripts/pr_complete.ps1`
