@@ -1,0 +1,34 @@
+
+# Dados e arquivos temporários
+*.xlsm
+*.xlsb
+*.log
+data/examples/
+
+# Diretórios antigos (legado)
+ITRs DFPs non-CVM/
+ITRs DFPs CVM/
+Spreads Tests/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Ferramentas locais e backups de governanca
+.claude/
+.governance-bootstrap/
+
+# Arquivos antigos (removidos na reorganização)
+/app_spread.py
+/extract_tables_t.py
+/extract_tables_c.py
+/test.py
+/tempCodeRunnerFile.py
