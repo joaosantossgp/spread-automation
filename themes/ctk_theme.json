@@ -120,6 +120,11 @@
   "CTkScrollableFrame": {
     "label_fg_color": ["#EDEAE2", "#353535"]
   },
+  "DropdownMenu": {
+    "fg_color": ["#FDFCF9", "#282828"],
+    "hover_color": ["#EDEAE2", "#454545"],
+    "text_color": ["#2C2920", "#FBFBFB"]
+  },
   "CTkSwitch": {
     "corner_radius": 1000,
     "border_width": 3,
@@ -131,5 +136,22 @@
     "border_color": ["#DEDAD2", "#3A3A3A"],
     "text_color": ["#2C2920", "#FBFBFB"],
     "text_color_disabled": ["#737060", "#999999"]
+  },
+  "CTkFont": {
+    "macOS": {
+      "family": "SF Display",
+      "size": 13,
+      "weight": "normal"
+    },
+    "Windows": {
+      "family": "Segoe UI",
+      "size": 13,
+      "weight": "normal"
+    },
+    "Linux": {
+      "family": "Roboto",
+      "size": 13,
+      "weight": "normal"
+    }
   }
 }
