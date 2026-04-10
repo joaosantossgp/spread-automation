@@ -2,6 +2,7 @@ name: Auto Merge
 
 # Triggered when the PR Issue Guardrails check completes.
 # If the check passed and the PR is not a draft, squash-merges automatically.
+# Requires: GITHUB_TOKEN with contents:write and pull-requests:write.
 on:
   workflow_run:
     workflows: ["PR Issue Guardrails"]
@@ -42,7 +43,7 @@ jobs:
             core.setOutput('found', 'true');
             core.setOutput('pr_number', String(pr.number));
             core.setOutput('is_draft', String(pr.draft));
-            core.info(`Found PR #${pr.number} — draft: ${pr.draft}`);
+            core.info(`Found PR #${pr.number} - draft: ${pr.draft}`);
 
       - name: Merge PR with squash strategy
         if: steps.find-pr.outputs.found == 'true' && steps.find-pr.outputs.is_draft == 'false'
@@ -52,12 +53,11 @@ jobs:
           echo "Merging PR #${{ steps.find-pr.outputs.pr_number }} via squash..."
           gh pr merge "${{ steps.find-pr.outputs.pr_number }}" \
             --squash \
-            --admin \
             --repo "${{ github.repository }}" \
             --delete-branch
           echo "Merge complete."
 
-      - name: Skip — PR is still draft
+      - name: Skip - PR is still draft
         if: steps.find-pr.outputs.found == 'true' && steps.find-pr.outputs.is_draft == 'true'
         run: |
           echo "PR #${{ steps.find-pr.outputs.pr_number }} is still a draft. Skipping auto-merge."

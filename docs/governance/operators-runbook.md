@@ -35,6 +35,12 @@ Before any apply or enforcement changes, review:
   powershell -ExecutionPolicy Bypass -File scripts/bootstrap-governance.ps1 -RepoPath . -Mode apply -OverwritePolicy preserve
 - Bash dry-run:
   ./scripts/bootstrap-governance.sh --repo . --mode dry-run
+- GitHub repo settings and labels:
+  powershell -ExecutionPolicy Bypass -File scripts/bootstrap-github-settings.ps1
+- GitHub repo settings and labels (bash):
+  ./scripts/bootstrap-github-settings.sh
+- Apply branch protection after the first guardrails run exposes the exact check name:
+  powershell -ExecutionPolicy Bypass -File scripts/bootstrap-github-settings.ps1 -ApplyBranchProtection -RequiredChecks validate-pr-issue-contract
 
 ## Helper Commands
 - Worktree create:
@@ -58,6 +64,11 @@ If guardrails or apply fail:
 2. restore from backup manifest,
 3. rerun dry-run,
 4. reattempt apply only after conflicts are resolved.
+
+If GitHub settings drift:
+1. rerun `scripts/bootstrap-github-settings.ps1`,
+2. confirm labels and repo merge settings,
+3. reapply branch protection with the live guardrail check context.
 
 ## Validation History
 
