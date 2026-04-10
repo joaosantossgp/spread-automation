@@ -1,8 +1,8 @@
-name: Post Merge — Close Linked Issue
+name: Post Merge - Close Linked Issue
 
 # Triggered when any PR is closed. If it was merged (not just closed),
-# finds the linked issue via "Closes #N" in the PR body, closes it,
-# swaps status label to status:completed, and adds a completion comment.
+# finds the linked issue via "Closes #N", "Fixes #N", or "Resolves #N" in the PR body,
+# closes it, swaps status label to status:completed, and adds a completion comment.
 on:
   pull_request:
     types: [closed]
@@ -23,14 +23,13 @@ jobs:
             const body = context.payload.pull_request.body || '';
             const prNumber = context.payload.pull_request.number;
 
-            // Support "Closes #N", "Fixes #N", "Resolves #N" (case-insensitive)
             const match = body.match(/(?:Closes|Fixes|Resolves)\s+#(\d+)/i);
             if (!match) {
               core.info('No linked issue keyword found in PR body. Skipping.');
               return;
             }
 
-            const issueNumber = parseInt(match[1]);
+            const issueNumber = parseInt(match[1], 10);
             core.info(`Linked issue: #${issueNumber}`);
 
             const issue = await github.rest.issues.get({
@@ -44,10 +43,9 @@ jobs:
               core.info(`Issue #${issueNumber} was already closed (likely by GitHub automation).`);
             }
 
-            // Always swap status label regardless of current closed state
-            const currentLabels = issue.data.labels.map(l => l.name);
+            const currentLabels = issue.data.labels.map((label) => label.name);
             const updatedLabels = [
-              ...currentLabels.filter(l => !l.startsWith('status:')),
+              ...currentLabels.filter((label) => !label.startsWith('status:')),
               'status:completed',
             ];
 
@@ -59,7 +57,6 @@ jobs:
             });
             core.info(`Labels updated: ${updatedLabels.join(', ')}`);
 
-            // Comment confirming completion
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -67,7 +64,6 @@ jobs:
               body: `Task completed. Merged in PR #${prNumber}.`,
             });
 
-            // Close the issue only if not already closed
             if (!alreadyClosed) {
               await github.rest.issues.update({
                 owner: context.repo.owner,

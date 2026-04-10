@@ -27,6 +27,11 @@
 2. Reapply expected values per governance config.
 3. Validate fetch and PR operations.
 
+## If GitHub Repository Settings Drift
+1. Review current repo settings and labels with `gh api repos/<owner>/<repo>` and `gh label list`.
+2. Rerun `scripts/bootstrap-github-settings.ps1` or `scripts/bootstrap-github-settings.sh`.
+3. If branch protection blocks merges unexpectedly, reapply it with the observed guardrail check context from the latest PR checks.
+
 ## Safe Mode Recommendation
 - Use dry-run mode.
 - Keep conservative autonomy.
