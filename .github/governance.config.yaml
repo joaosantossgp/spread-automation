@@ -28,6 +28,7 @@ lanes:
     description: "Owns desktop UI and interaction flow"
     ownership_patterns:
       - "app/**"
+      - "themes/**"
     allow_shared_governance: true
     allow_critical_groups:
       - "shared-governance"
@@ -37,6 +38,13 @@ lanes:
     ownership_patterns:
       - "core/**"
       - "processing/**"
+      - "ingestion/**"
+      - "mapping/**"
+      - "mapping_tables/**"
+      - "spread/**"
+      - "validation/**"
+      - "engine/**"
+      - "templates/**"
     allow_shared_governance: true
     allow_critical_groups:
       - "shared-governance"
@@ -47,10 +55,12 @@ lanes:
     description: "Owns CI/CD, docs, scripts, and governance assets"
     ownership_patterns:
       - ".github/**"
+      - ".claude/**"
       - "docs/**"
       - "scripts/**"
-      - "config/**"
       - "*.md"
+      - "LICENSE"
+      - ".gitignore"
     allow_shared_governance: true
     allow_critical_groups:
       - "shared-governance"
@@ -199,11 +209,20 @@ path_policy:
   lane_allowlists:
     app-ui:
       - "app/**"
+      - "themes/**"
     engine-finance:
       - "core/**"
       - "processing/**"
+      - "ingestion/**"
+      - "mapping/**"
+      - "mapping_tables/**"
+      - "spread/**"
+      - "validation/**"
+      - "engine/**"
+      - "templates/**"
     ops-quality:
       - ".github/**"
+      - ".claude/**"
       - "docs/**"
       - "scripts/**"
       - "*.md"
@@ -211,6 +230,7 @@ path_policy:
       - ".gitignore"
   critical_groups:
     - name: "shared-governance"
+      description: "Shared governance and documentation boundaries"
       patterns:
         - "AGENTS.md"
         - "README.md"
@@ -220,10 +240,13 @@ path_policy:
         - "CHANGELOG.md"
         - "LICENSE"
         - ".gitignore"
+        - "build.spec"
         - "requirements.txt"
         - "main.py"
         - "docs/**"
-        - ".github/**"
+        - ".github/ISSUE_TEMPLATE/**"
+        - ".github/PULL_REQUEST_TEMPLATE.md"
+        - ".claude/**"
       owner_lane: "ops-quality"
       allowed_lanes:
         - "app-ui"
@@ -233,6 +256,7 @@ path_policy:
       require_draft: true
       require_compatibility: false
     - name: "critical-bootstrap"
+      description: "Setup and bootstrap-sensitive paths"
       patterns:
         - ".github/workflows/**"
         - ".github/guardrails/**"
@@ -250,9 +274,17 @@ path_policy:
       require_draft: true
       require_compatibility: false
     - name: "critical-runtime"
+      description: "Core runtime, mapping, ingestion, validation, and spread execution paths"
       patterns:
         - "core/**"
         - "processing/**"
+        - "ingestion/**"
+        - "mapping/**"
+        - "mapping_tables/**"
+        - "spread/**"
+        - "validation/**"
+        - "engine/**"
+        - "templates/**"
       owner_lane: "engine-finance"
       allowed_lanes:
         - "engine-finance"
@@ -260,6 +292,7 @@ path_policy:
       require_draft: true
       require_compatibility: false
     - name: "critical-contract"
+      description: "Public API and compatibility-sensitive paths"
       patterns:
         - "core/conta_map.py"
         - "core/utils.py"
@@ -277,6 +310,13 @@ path_policy:
       right:
         - "core/**"
         - "processing/**"
+        - "ingestion/**"
+        - "mapping/**"
+        - "mapping_tables/**"
+        - "spread/**"
+        - "validation/**"
+        - "engine/**"
+        - "templates/**"
 
 guardrails:
   workflow_file: ".github/workflows/pr-issue-guardrails.yml"
