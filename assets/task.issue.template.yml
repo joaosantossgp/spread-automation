@@ -55,6 +55,7 @@ body:
         - app-ui
         - engine-finance
         - ops-quality
+        - master
     validations:
       required: true
 
@@ -68,6 +69,7 @@ body:
         - app-ui
         - engine-finance
         - ops-quality
+        - master
     validations:
       required: true
 

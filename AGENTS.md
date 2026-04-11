@@ -52,6 +52,19 @@ A task is complete only when PR is merged and linked issue is closed.
 - Never finalize a task while the linked issue remains open.
 - If external review or approval is pending, report the pending gate explicitly and keep the task open.
 
+## Master lane
+
+The `master` lane is the cross-cutting orchestrator with absolute write access to all application and engine paths. It exists for:
+- fixing bugs that span multiple domains,
+- unblocking work other lanes are hesitant to touch,
+- executing next-step corrections across the codebase.
+
+Master lane has two modes:
+- **Execution mode** (`lane:master`): normal lane-aware execution with broad write access. Can touch `app/**`, `core/**`, `processing/**`, `engine/**`, and all other runtime/UI paths. Domain mix restrictions (`app-ui-with-engine-runtime`) are exempt for this lane.
+- **Planning mode** (`lane:master.plan`): read-only orchestration. No file edits, no code changes. Deep project research and structured task proposals only.
+
+**Governance exclusion:** The master lane does NOT own and CANNOT write to governance-critical paths (`critical-bootstrap`). That domain stays exclusively with `ops-quality`. This means master cannot modify `.github/workflows/**`, `.github/guardrails/**`, `.github/governance.config.yaml`, or bootstrap scripts.
+
 ## Safety constraints
 - Required checks must stay green for merge completion.
 - Never force-remove worktrees without explicit approval.

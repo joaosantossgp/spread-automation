@@ -25,6 +25,19 @@
       "*.md",
       "LICENSE",
       ".gitignore"
+    ],
+    "master": [
+      "app/**",
+      "themes/**",
+      "core/**",
+      "processing/**",
+      "ingestion/**",
+      "mapping/**",
+      "mapping_tables/**",
+      "spread/**",
+      "validation/**",
+      "engine/**",
+      "templates/**"
     ]
   },
   "criticalGroups": [
@@ -52,7 +65,8 @@
       "allowedLanes": [
         "app-ui",
         "engine-finance",
-        "ops-quality"
+        "ops-quality",
+        "master"
       ],
       "minimumRisk": "shared",
       "requireDraft": true,
@@ -96,7 +110,8 @@
       ],
       "ownerLane": "engine-finance",
       "allowedLanes": [
-        "engine-finance"
+        "engine-finance",
+        "master"
       ],
       "minimumRisk": "shared",
       "requireDraft": true,
@@ -112,7 +127,8 @@
       ],
       "ownerLane": "engine-finance",
       "allowedLanes": [
-        "engine-finance"
+        "engine-finance",
+        "master"
       ],
       "minimumRisk": "contract-sensitive",
       "requireDraft": true,
@@ -135,6 +151,9 @@
         "validation/**",
         "engine/**",
         "templates/**"
+      ],
+      "exemptLanes": [
+        "master"
       ]
     }
   ]
