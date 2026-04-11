@@ -23,6 +23,23 @@ class Mode1AWorkflow:
         self.mapper = Mapper(self.registry)
         self.reporter = ValidationReporter()
 
+    @staticmethod
+    def detect_target_slot(
+        spread_path: str | Path,
+        period: str,
+        *,
+        start_row: int | None = None,
+    ):
+        """Expose normalized slot detection for UI consumers."""
+
+        from engine.slot_detection import detect_mode1a_slot
+
+        return detect_mode1a_slot(
+            spread_path=spread_path,
+            period=period,
+            start_row=start_row,
+        )
+
     def execute(
         self,
         source_path: str | Path,
