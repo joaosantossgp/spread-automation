@@ -31,8 +31,9 @@ jobs:
             const CLOSE_KEYWORDS = ["Closes", "Fixes", "Resolves"];
 
             const SECTION_ALIASES = {
+              planningEpic: ["Planning epic", "Epic parent"],
               owner: ["Current owner", "Owner atual"],
-              parentTask: ["Parent task", "Task mae"],
+              parentTask: ["Executable parent task", "Parent task", "Task mae"],
               requesterLane: ["Requester lane", "Lane solicitante"],
               lane: ["Official lane", "Lane oficial"],
               workspace: ["Task workspace", "Workspace da task"],
@@ -57,16 +58,18 @@ jobs:
 
             function extractSection(body, heading) {
               const lines = (body || "").split(/\r?\n/);
+              const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const headingPattern = new RegExp(`^#{2,6}\\s+${escapedHeading}\\s*$`, "i");
               let capturing = false;
               const collected = [];
 
               for (const line of lines) {
-                if (line.trim() === `## ${heading}`) {
+                if (headingPattern.test(line.trim())) {
                   capturing = true;
                   continue;
                 }
 
-                if (capturing && /^##\s+/.test(line)) {
+                if (capturing && /^#{2,6}\s+/.test(line)) {
                   break;
                 }
 
@@ -271,6 +274,10 @@ jobs:
             if (!requireExactlyOnePrefix(labels, "lane:", "lane:*")) return;
 
             const owner = extractSectionByAliases(issue.body || "", SECTION_ALIASES.owner);
+            const planningEpicSection = extractSectionByAliases(
+              issue.body || "",
+              SECTION_ALIASES.planningEpic,
+            );
             const parentTaskSection = extractSectionByAliases(
               issue.body || "",
               SECTION_ALIASES.parentTask,
@@ -345,13 +352,14 @@ jobs:
             }
 
             const hasParentTask = parentTaskSection && !isNotApplicable(parentTaskSection);
+            const hasPlanningEpic = planningEpicSection && !isNotApplicable(planningEpicSection);
             const requesterLaneProvided = requesterLane && !isNotApplicable(requesterLane);
             const consumptionCriteriaProvided =
               consumptionCriteria && !isNotApplicable(consumptionCriteria);
 
             if (!hasParentTask && (requesterLaneProvided || consumptionCriteriaProvided)) {
               core.setFailed(
-                `Issue #${issueNumber} can only set requester lane and consumption criteria when parent task is declared.`,
+                `Issue #${issueNumber} can only set requester lane and consumption criteria when executable parent task is declared.`,
               );
               return;
             }
@@ -360,7 +368,7 @@ jobs:
               const parentTaskNumber = parseIssueReference(parentTaskSection);
               if (!parentTaskNumber) {
                 core.setFailed(
-                  `Issue #${issueNumber} parent task must reference a valid issue number (example: #40).`,
+                  `Issue #${issueNumber} executable parent task must reference a valid issue number (example: #40).`,
                 );
                 return;
               }
@@ -372,7 +380,7 @@ jobs:
 
               if (requesterLane === laneFromLabel) {
                 core.setFailed(
-                  `Issue #${issueNumber} child task requester lane cannot match its own official lane "${laneFromLabel}".`,
+                  `Issue #${issueNumber} cannot use an executable parent task inside the same lane "${laneFromLabel}". Keep it standalone and, if needed, link it only through Planning epic.`,
                 );
                 return;
               }
@@ -404,7 +412,12 @@ jobs:
               );
 
               if (!parentLabels.includes("kind:task")) {
-                core.setFailed(`Parent issue #${parentTaskNumber} must include label "kind:task".`);
+                const epicHint = hasPlanningEpic
+                  ? `Planning epic is already declared in issue #${issueNumber}; keep epic links there and point executable parent task to a kind:task integration issue.`
+                  : `Use Planning epic for roadmap links and executable parent task only for a kind:task integration issue.`;
+                core.setFailed(
+                  `Parent issue #${parentTaskNumber} must include label "kind:task". ${epicHint}`,
+                );
                 return;
               }
 

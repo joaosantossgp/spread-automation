@@ -16,12 +16,20 @@ Before any apply or enforcement changes, review:
 
 ## Task Execution Flow
 1. Open task issue with required labels and metadata.
+   Use `Planning epic` only for roadmap grouping.
+   Use `Executable parent task` only for cross-lane child tasks.
 2. Create worktree and task branch.
 3. Implement in dedicated worktree only.
 4. Open one PR with linked issue closure line.
 5. While PR is open, keep issue status in-progress and report pending review/approval gates.
 6. Complete PR only after required checks are green and required approvals are done.
 7. Confirm linked issue closure and cleanup worktree before declaring task complete.
+
+## Task Modeling
+- Planning epic: roadmap only, never referenced in `Parent task`.
+- Executable parent task: a `kind:task` issue that owns integration and consumes child-task delivery.
+- Child task: cross-lane task with `Requester lane`, `Consumption criteria`, and `Parent task` pointing to an executable parent task.
+- Standalone task: normal executable task with `Parent task`, `Requester lane`, and `Consumption criteria` set to `n/a`.
 
 ## AI Handoff Rule
 - Do not claim done when PR is still open, even if checks are green.
@@ -69,6 +77,12 @@ If GitHub settings drift:
 1. rerun `scripts/bootstrap-github-settings.ps1`,
 2. confirm labels and repo merge settings,
 3. reapply branch protection with the live guardrail check context.
+
+If issue modeling fails:
+1. confirm whether the issue is a planning epic, executable parent task, child task, or standalone task,
+2. never point `Parent task` to an epic,
+3. keep same-lane work standalone unless there is a real cross-lane child-task dependency,
+4. rerun the issue and PR guardrails after fixing the issue body.
 
 ## Validation History
 

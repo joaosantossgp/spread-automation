@@ -13,7 +13,8 @@ Closes #
 - Expected write-set (Write-set esperado):
 
 ## Child Task Notes
-- Parent task (Task mae):
+- Use `n/a` unless this PR delivers a cross-lane child task.
+- Executable parent task (Parent task / Task mae):
 - Requester lane (Lane solicitante):
 - Consumption criteria (Criterio de consumo):
 

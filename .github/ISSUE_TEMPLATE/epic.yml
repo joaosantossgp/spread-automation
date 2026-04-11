@@ -5,7 +5,7 @@ labels:
   - kind:epic
   - status:ready
   - priority:p1
-  - area:docs
+  - area:governance
   - lane:ops-quality
 body:
   - type: markdown
@@ -15,7 +15,9 @@ body:
 
         Notes:
         - Epics are planning containers and should not be closed directly by PR automation.
+        - Epics must never be referenced in `Executable parent task` or `Parent task` fields.
         - Child tasks should carry full execution metadata and write-set contracts.
+        - If a lane needs formal cross-lane delivery, create a separate executable parent task and attach the child tasks there.
 
   - type: dropdown
     id: official-lane

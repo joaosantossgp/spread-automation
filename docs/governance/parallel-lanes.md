@@ -13,6 +13,10 @@ Before starting executable work:
 - check open PRs and pending consumption states.
 
 ## Parent and child tasks
+- Planning epic is a roadmap container only. It never replaces an executable parent task and must never be referenced in `Parent task`.
+- Executable parent task is a `kind:task` issue that coordinates cross-lane delivery and owns the integration point.
+- Child task is a cross-lane task that points to an executable parent task and is consumed by the parent lane.
+- Standalone task has no executable parent task. It may still reference a planning epic for roadmap grouping.
 - Use child tasks when one lane needs write access from another lane.
 - Parent task tracks child tasks and stays blocked until delivery is consumed.
 - Parent lane must match child requester lane.
