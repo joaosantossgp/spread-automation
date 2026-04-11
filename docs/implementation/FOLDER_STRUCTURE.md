@@ -1,10 +1,22 @@
 # Estrutura de Pastas Alvo
 
 > Organizacao do codigo-fonte apos todas as phases serem concluidas. Cada modulo listado inclui a phase em que sera criado.
+>
+> Snapshot atual do desktop runtime (2026-04-11): `main.py` carrega `app/app.py`, que hoje monta apenas `app/screens/screen_1a.py`. `app/gui.py` continua preservado como baseline legado. Nem todos os arquivos listados abaixo ja existem no repositorio.
 
 ---
 
 ## 1. Visao Geral
+
+### Snapshot atual do app desktop
+
+```text
+main.py -> app/app.py -> app/screens/screen_1a.py
+```
+
+- `app/gui.py` continua presente como baseline legado e referencia de paridade funcional
+- `app/screens/mode_selector.py`, `app/screens/screen_1b.py` e `app/screens/screen_2.py` continuam como estrutura alvo, nao como runtime ja entregue
+- `app/widgets/__init__.py` existe hoje e concentra os widgets reutilizados pela tela atual
 
 ```
 spread_automation/
@@ -167,6 +179,8 @@ core/       → (nenhum import interno)
 ---
 
 ## 3. Progressao por Phase
+
+As entradas abaixo registram o desenho historico das phases. Onde o plano menciona `app/gui.py`, leia isso como a baseline legado que foi preservada no repositorio; o runtime desktop atual foi deslocado para `app/app.py`.
 
 ### Phase 0 — Fundacao
 

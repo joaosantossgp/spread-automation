@@ -2,6 +2,8 @@
 
 > Descreve as camadas, módulos, responsabilidades e contratos que formam a arquitetura v2 do Spread Automation.
 
+> Nota de implementacao atual (2026-04-11): o runtime desktop em producao no repositorio ainda e parcial. `main.py` sobe `app.app.SpreadApp`, que hoje monta apenas `app/screens/screen_1a.py`. `app/gui.py` permanece como baseline legado preservado e nao como entry point ativo.
+
 ---
 
 ## 1. Princípio Fundamental
@@ -177,6 +179,14 @@ Orquestra fluxos de trabalho completos.
 | `screens/screen_2.py` | Inputs + revisão para Modes 2A/2B |
 
 ---
+
+#### Estado atual do desktop runtime
+
+- Launcher atual: `main.py`
+- Shell atual: `app/app.py`
+- Tela atualmente montada: `app/screens/screen_1a.py`
+- `app/gui.py` foi preservado como baseline legado e referencia funcional, nao como entry point
+- A tabela acima continua descrevendo a arquitetura alvo multi-tela; `mode_selector.py`, `screen_1b.py` e `screen_2.py` ainda nao estao presentes no runtime atual
 
 ## 4. Contratos entre Camadas
 
