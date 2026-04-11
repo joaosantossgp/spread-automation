@@ -13,6 +13,7 @@
       ".github/**",
       "docs/**",
       "scripts/**",
+      "assets/**",
       "*.md",
       "LICENSE",
       ".gitignore"

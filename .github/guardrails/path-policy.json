@@ -22,6 +22,7 @@
       ".claude/**",
       "docs/**",
       "scripts/**",
+      "assets/**",
       "*.md",
       "LICENSE",
       ".gitignore"
