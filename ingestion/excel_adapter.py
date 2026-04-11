@@ -1,5 +1,5 @@
 from pathlib import Path
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import pandas as pd
 
 from .base import IngestionAdapter
@@ -65,7 +65,7 @@ class CVMExcelAdapter(IngestionAdapter):
                             accounts.append(FinancialAccount(
                                 code=codigo,
                                 description=descricao,
-                                value=Decimal(str(val)),
+                                value=_coerce_decimal(val),
                                 period=period,
                                 section=section,
                                 source=SourceType.CVM_EXCEL
@@ -93,7 +93,7 @@ class CVMExcelAdapter(IngestionAdapter):
                         accounts.append(FinancialAccount(
                             code=codigo,
                             description=descricao,
-                            value=Decimal(str(val_atual)),
+                            value=_coerce_decimal(val_atual),
                             period=period,
                             section=section,
                             source=SourceType.CVM_EXCEL
@@ -104,7 +104,7 @@ class CVMExcelAdapter(IngestionAdapter):
                         accounts.append(FinancialAccount(
                             code=codigo,
                             description=descricao,
-                            value=Decimal(str(val_ant)),
+                            value=_coerce_decimal(val_ant),
                             period=previous_period,
                             section=section,
                             source=SourceType.CVM_EXCEL
@@ -115,7 +115,7 @@ class CVMExcelAdapter(IngestionAdapter):
                         accounts.append(FinancialAccount(
                             code=codigo,
                             description=descricao,
-                            value=Decimal(str(val_ant2)),
+                            value=_coerce_decimal(val_ant2),
                             period=previous_previous_period,
                             section=section,
                             source=SourceType.CVM_EXCEL
@@ -129,3 +129,36 @@ class CVMExcelAdapter(IngestionAdapter):
             source_type=SourceType.CVM_EXCEL,
             accounts=accounts
         )
+
+
+def _coerce_decimal(value: object) -> Decimal:
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, int):
+        return Decimal(value)
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            raise InvalidOperation("Empty numeric string.")
+
+        normalized = text.replace(" ", "")
+        if "." in normalized and "," in normalized:
+            normalized = normalized.replace(".", "").replace(",", ".")
+        elif "," in normalized:
+            comma_parts = normalized.split(",")
+            if len(comma_parts) == 2 and comma_parts[1].isdigit() and len(comma_parts[1]) <= 2:
+                normalized = normalized.replace(",", ".")
+            else:
+                normalized = normalized.replace(",", "")
+        else:
+            dot_parts = normalized.split(".")
+            if len(dot_parts) > 2:
+                normalized = normalized.replace(".", "")
+            elif len(dot_parts) == 2 and dot_parts[1].isdigit() and len(dot_parts[1]) == 3:
+                normalized = normalized.replace(".", "")
+
+        return Decimal(normalized)
+
+    return Decimal(str(value))

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from decimal import Decimal
 
-from core.models import EntityType, SourceType
+from core.schema import SpreadSchema
+from core.models import EntityType
 from ingestion import CVMExcelAdapter
 from mapping import MappingRegistry, Mapper
 from spread import SpreadReader, SpreadWriter, Highlights
@@ -44,6 +44,10 @@ class Mode1AWorkflow:
         """
         source_path = Path(source_path)
         spread_path = Path(spread_path)
+        spread_schema = SpreadSchema.load()
+        schema_end_row = max(
+            section.end_row for section in spread_schema.sections.values()
+        )
 
         # 1. Ingest Data
         adapter = CVMExcelAdapter()
@@ -56,12 +60,12 @@ class Mode1AWorkflow:
         )
 
         # 2. Extract Spread Schema
-        reader = SpreadReader(spread_path)
+        reader = SpreadReader(spread_path, sheet_name=spread_schema.sheet_name)
         target_schema = reader.extract_schema(
-            label_col="B",
+            label_col=spread_schema.columns.label,
             prior_val_col=prior_col,
-            start_row=10,  # Assumption based on MAPPING_STRATEGY or proxy templates
-            end_row=1000
+            start_row=spread_schema.data_start_row,
+            end_row=schema_end_row,
         )
 
         # 3. Apply Mapping Engine
@@ -72,11 +76,11 @@ class Mode1AWorkflow:
         )
 
         # 4. Write output
-        writer = SpreadWriter(spread_path)
+        writer = SpreadWriter(spread_path, sheet_name=spread_schema.sheet_name)
         writer.write_results(dest_col=dest_col, results=mapped_results, overwrite=True)
 
         # 5. Apply graphical highlights
-        highlights = Highlights(spread_path)
+        highlights = Highlights(spread_path, sheet_name=spread_schema.sheet_name)
         highlights.apply_styles(col=dest_col, results=mapped_results)
 
         # 6. Validate
