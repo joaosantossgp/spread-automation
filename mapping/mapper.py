@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from core.schema import SpreadSchema
 from core.models import FinancialDataSet, MappingResult, SourceType
 from mapping.layer1 import Layer1Matcher
 from mapping.layer2 import Layer2Matcher
@@ -18,9 +19,10 @@ class Mapper:
 
     def __init__(self, registry: MappingRegistry):
         self._registry = registry
+        self._spread_schema = SpreadSchema.load()
         self._layer1_matcher = Layer1Matcher(registry)
         self._layer2_matcher = Layer2Matcher(registry)
-        self._layer3_matcher = Layer3Matcher()
+        self._layer3_matcher = Layer3Matcher(registry)
 
     def map_dataset(
         self,
@@ -61,7 +63,7 @@ class Mapper:
                 layer1_accs = [
                     acc
                     for acc in current_accounts
-                    if acc.code and self._registry.layer1(acc.code) == label
+                    if acc.code and self._matches_layer1_target(acc.code, row, label)
                 ]
 
                 if layer1_accs:
@@ -76,9 +78,10 @@ class Mapper:
                     )
 
             if mapped_result is None and current_dataset.source_type == SourceType.PDF:
-                mapped_result = self._layer3_matcher.fuzzy_match(
+                mapped_result = self._layer3_matcher.match_fuzzy(
                     target_label=label,
                     target_row=row,
+                    target_prior_value=prior_val,
                     current_accounts=current_accounts,
                 )
 
@@ -86,3 +89,21 @@ class Mapper:
                 results[row] = mapped_result
 
         return list(results.values())
+
+    def _matches_layer1_target(self, account_code: str, target_row: int, target_label: str) -> bool:
+        mapping_target = self._registry.layer1(account_code)
+        if mapping_target is None:
+            return False
+
+        # Compatibility path for registries that still map directly to visible labels.
+        if mapping_target == target_label:
+            return True
+
+        schema_row = self._spread_schema.rows.get(mapping_target)
+        if schema_row is None:
+            return False
+
+        if schema_row.row == target_row:
+            return True
+
+        return schema_row.label == target_label
