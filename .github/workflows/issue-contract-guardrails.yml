@@ -1,0 +1,365 @@
+name: Issue Contract Guardrails
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+      - labeled
+      - unlabeled
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  validate-issue-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate issue planning and parent-task contracts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const SECTION_ALIASES = {
+              planningEpic: ["Planning epic", "Epic parent"],
+              owner: ["Current owner", "Owner atual"],
+              parentTask: ["Executable parent task", "Parent task", "Task mae"],
+              requesterLane: ["Requester lane", "Lane solicitante"],
+              lane: ["Official lane", "Lane oficial"],
+              workspace: ["Task workspace", "Workspace da task"],
+              childTasks: ["Child tasks", "Tasks filhas"],
+              writeSet: ["Expected write-set", "Write-set esperado"],
+              consumption: ["Consumption criteria", "Criterio de consumo"],
+              risk: ["Risk classification", "Classificacao de risco"],
+            };
+
+            const PARENT_ALLOWED_STATUS = [
+              "status:blocked",
+              "status:awaiting-consumption",
+            ];
+
+            function extractSection(body, heading) {
+              const lines = (body || "").split(/\r?\n/);
+              const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const headingPattern = new RegExp(`^#{2,6}\\s+${escapedHeading}\\s*$`, "i");
+              let capturing = false;
+              const collected = [];
+
+              for (const line of lines) {
+                if (headingPattern.test(line.trim())) {
+                  capturing = true;
+                  continue;
+                }
+
+                if (capturing && /^#{2,6}\s+/.test(line)) {
+                  break;
+                }
+
+                if (capturing) {
+                  collected.push(line);
+                }
+              }
+
+              return collected.join("\n").trim();
+            }
+
+            function extractSectionByAliases(body, aliases) {
+              for (const alias of aliases) {
+                const value = extractSection(body, alias);
+                if (value) {
+                  return value;
+                }
+              }
+              return "";
+            }
+
+            function requireExactlyOnePrefix(labels, prefix, description) {
+              const matches = labels.filter((label) => label.startsWith(prefix));
+              if (matches.length !== 1) {
+                core.setFailed(
+                  `Issue must include exactly one ${description} label. Found: ${matches.join(", ") || "none"}.`,
+                );
+                return false;
+              }
+              return true;
+            }
+
+            function isNotApplicable(value) {
+              return /^(n\/a|na|none|no|nenhuma|nenhum|sem child task|sem task mae)$/i.test(
+                (value || "").trim(),
+              );
+            }
+
+            function parseIssueReference(value) {
+              const match = (value || "").match(/#(\d+)/);
+              return match ? Number(match[1]) : null;
+            }
+
+            async function loadLinkedIssue(issueNumber, purpose) {
+              const { data: linkedIssue } = await github.rest.issues.get({
+                ...context.repo,
+                issue_number: issueNumber,
+              });
+
+              if (linkedIssue.pull_request) {
+                core.setFailed(`${purpose} #${issueNumber} cannot be a pull request.`);
+                return null;
+              }
+
+              if (linkedIssue.state !== "open") {
+                core.setFailed(`${purpose} #${issueNumber} must remain open.`);
+                return null;
+              }
+
+              return linkedIssue;
+            }
+
+            const issue = context.payload.issue;
+            if (!issue || issue.pull_request) {
+              core.info("Skipping pull request payload.");
+              return;
+            }
+
+            const issueNumber = issue.number;
+            const labels = issue.labels.map((label) =>
+              typeof label === "string" ? label : label.name,
+            );
+            const kindLabels = labels.filter((label) => label.startsWith("kind:"));
+
+            if (kindLabels.length !== 1) {
+              core.setFailed(
+                `Issue #${issueNumber} must include exactly one kind:* label. Found: ${kindLabels.join(", ") || "none"}.`,
+              );
+              return;
+            }
+
+            const kind = kindLabels[0];
+            const planningEpicSection = extractSectionByAliases(
+              issue.body || "",
+              SECTION_ALIASES.planningEpic,
+            );
+            const parentTaskSection = extractSectionByAliases(
+              issue.body || "",
+              SECTION_ALIASES.parentTask,
+            );
+            const requesterLane = extractSectionByAliases(
+              issue.body || "",
+              SECTION_ALIASES.requesterLane,
+            )
+              .toLowerCase()
+              .trim();
+            const laneSection = extractSectionByAliases(issue.body || "", SECTION_ALIASES.lane)
+              .toLowerCase()
+              .trim();
+            const workspace = extractSectionByAliases(issue.body || "", SECTION_ALIASES.workspace);
+            const writeSet = extractSectionByAliases(issue.body || "", SECTION_ALIASES.writeSet);
+            const consumptionCriteria = extractSectionByAliases(
+              issue.body || "",
+              SECTION_ALIASES.consumption,
+            );
+            const risk = extractSectionByAliases(issue.body || "", SECTION_ALIASES.risk)
+              .toLowerCase()
+              .trim();
+
+            const hasPlanningEpic = planningEpicSection && !isNotApplicable(planningEpicSection);
+            const hasParentTask = parentTaskSection && !isNotApplicable(parentTaskSection);
+            const requesterLaneProvided = requesterLane && !isNotApplicable(requesterLane);
+            const consumptionCriteriaProvided =
+              consumptionCriteria && !isNotApplicable(consumptionCriteria);
+
+            if (kind === "kind:task") {
+              if (!requireExactlyOnePrefix(labels, "status:", "status:*")) return;
+              if (!requireExactlyOnePrefix(labels, "priority:", "priority:*")) return;
+              if (!requireExactlyOnePrefix(labels, "area:", "area:*")) return;
+              if (!requireExactlyOnePrefix(labels, "risk:", "risk:*")) return;
+              if (!requireExactlyOnePrefix(labels, "lane:", "lane:*")) return;
+
+              const owner = extractSectionByAliases(issue.body || "", SECTION_ALIASES.owner);
+              const laneLabel = labels.find((label) => label.startsWith("lane:"));
+              const laneFromLabel = laneLabel.replace(/^lane:/, "").trim().toLowerCase();
+
+              if (!owner || /^tbd$/i.test(owner)) {
+                core.setFailed(`Issue #${issueNumber} must declare a concrete current owner.`);
+                return;
+              }
+
+              if (!laneSection || laneSection !== laneFromLabel) {
+                core.setFailed(
+                  `Issue #${issueNumber} lane section must match its lane label "${laneFromLabel}".`,
+                );
+                return;
+              }
+
+              if (!workspace || /^tbd/i.test(workspace)) {
+                core.setFailed(`Issue #${issueNumber} must declare a concrete task workspace path.`);
+                return;
+              }
+
+              if (!writeSet) {
+                core.setFailed(`Issue #${issueNumber} must declare an expected write-set.`);
+                return;
+              }
+
+              const acceptedRiskValues = ["safe", "shared", "contract-sensitive"];
+              if (!acceptedRiskValues.includes(risk)) {
+                core.setFailed(
+                  `Issue #${issueNumber} risk classification must be one of: ${acceptedRiskValues.join(", ")}.`,
+                );
+                return;
+              }
+
+              const expectedRiskLabel = `risk:${risk}`;
+              if (!labels.includes(expectedRiskLabel)) {
+                core.setFailed(
+                  `Issue #${issueNumber} declares risk "${risk}" but does not include label "${expectedRiskLabel}".`,
+                );
+                return;
+              }
+
+              if (hasPlanningEpic) {
+                const epicNumber = parseIssueReference(planningEpicSection);
+                if (!epicNumber) {
+                  core.setFailed(
+                    `Issue #${issueNumber} planning epic must reference a valid issue number (example: #11).`,
+                  );
+                  return;
+                }
+
+                const planningEpic = await loadLinkedIssue(epicNumber, "Planning epic");
+                if (!planningEpic) return;
+
+                const epicLabels = planningEpic.labels.map((label) =>
+                  typeof label === "string" ? label : label.name,
+                );
+                if (!epicLabels.includes("kind:epic")) {
+                  core.setFailed(
+                    `Planning epic #${epicNumber} must include label "kind:epic". Use executable parent task only for kind:task delivery issues.`,
+                  );
+                  return;
+                }
+              }
+
+              if (!hasParentTask && (requesterLaneProvided || consumptionCriteriaProvided)) {
+                core.setFailed(
+                  `Issue #${issueNumber} can only set requester lane and consumption criteria when executable parent task is declared.`,
+                );
+                return;
+              }
+
+              if (hasParentTask) {
+                const parentTaskNumber = parseIssueReference(parentTaskSection);
+                if (!parentTaskNumber) {
+                  core.setFailed(
+                    `Issue #${issueNumber} executable parent task must reference a valid issue number (example: #40).`,
+                  );
+                  return;
+                }
+
+                if (!requesterLaneProvided) {
+                  core.setFailed(
+                    `Issue #${issueNumber} must declare requester lane for cross-lane child tasks.`,
+                  );
+                  return;
+                }
+
+                if (requesterLane === laneFromLabel) {
+                  core.setFailed(
+                    `Issue #${issueNumber} cannot use executable parent task inside the same lane "${laneFromLabel}". Keep it standalone and, if needed, link it only through Planning epic.`,
+                  );
+                  return;
+                }
+
+                if (!consumptionCriteriaProvided) {
+                  core.setFailed(
+                    `Issue #${issueNumber} must declare consumption criteria for cross-lane child tasks.`,
+                  );
+                  return;
+                }
+
+                const parentIssue = await loadLinkedIssue(parentTaskNumber, "Executable parent task");
+                if (!parentIssue) return;
+
+                const parentLabels = parentIssue.labels.map((label) =>
+                  typeof label === "string" ? label : label.name,
+                );
+
+                if (!parentLabels.includes("kind:task")) {
+                  core.setFailed(
+                    `Executable parent task #${parentTaskNumber} must include label "kind:task". Use Planning epic for roadmap grouping and executable parent task only for kind:task delivery issues.`,
+                  );
+                  return;
+                }
+
+                if (!requireExactlyOnePrefix(parentLabels, "lane:", "lane:* on executable parent task")) {
+                  return;
+                }
+
+                const parentLane = extractSectionByAliases(
+                  parentIssue.body || "",
+                  SECTION_ALIASES.lane,
+                )
+                  .toLowerCase()
+                  .trim();
+
+                if (parentLane !== requesterLane) {
+                  core.setFailed(
+                    `Issue #${issueNumber} requester lane "${requesterLane}" must match executable parent task #${parentTaskNumber} lane "${parentLane}".`,
+                  );
+                  return;
+                }
+
+                const parentChildrenSection = extractSectionByAliases(
+                  parentIssue.body || "",
+                  SECTION_ALIASES.childTasks,
+                );
+
+                if (
+                  !parentChildrenSection ||
+                  isNotApplicable(parentChildrenSection) ||
+                  !new RegExp(`(^|\\s|-)#${issueNumber}(\\b|\\s|$)`, "i").test(parentChildrenSection)
+                ) {
+                  core.setFailed(
+                    `Executable parent task #${parentTaskNumber} must list child task #${issueNumber} in child tasks section.`,
+                  );
+                  return;
+                }
+
+                const parentStatusLabels = parentLabels.filter((label) => label.startsWith("status:"));
+                if (!parentStatusLabels.some((status) => PARENT_ALLOWED_STATUS.includes(status))) {
+                  core.setFailed(
+                    `Executable parent task #${parentTaskNumber} must remain in one of: ${PARENT_ALLOWED_STATUS.join(", ")}.`,
+                  );
+                  return;
+                }
+              }
+
+              core.info(`Task issue #${issueNumber} contract validated successfully.`);
+              return;
+            }
+
+            if (kind === "kind:epic") {
+              if (!requireExactlyOnePrefix(labels, "status:", "status:*")) return;
+              if (!requireExactlyOnePrefix(labels, "priority:", "priority:*")) return;
+              if (!requireExactlyOnePrefix(labels, "area:", "area:*")) return;
+              if (!requireExactlyOnePrefix(labels, "lane:", "lane:*")) return;
+
+              if (hasPlanningEpic) {
+                core.setFailed(
+                  `Epic #${issueNumber} cannot declare a planning epic. Epics are the planning container.`,
+                );
+                return;
+              }
+
+              if (hasParentTask || requesterLaneProvided || consumptionCriteriaProvided) {
+                core.setFailed(
+                  `Epic #${issueNumber} cannot carry child-task contract fields. Use Planning epic for roadmap grouping and create a separate kind:task issue for executable parent-task semantics.`,
+                );
+                return;
+              }
+
+              core.info(`Epic issue #${issueNumber} contract validated successfully.`);
+              return;
+            }
+
+            core.info(`Skipping unsupported issue kind for #${issueNumber}: ${kind}`);

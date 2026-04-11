@@ -17,6 +17,9 @@ body:
         Before submitting:
         - One lane per task.
         - One branch, one worktree, one PR.
+        - Use `Planning epic` only for roadmap grouping.
+        - Use `Executable parent task` only for cross-lane child tasks.
+        - If `Official lane` and `Requester lane` are the same, this is not a child task: keep `Executable parent task`, `Requester lane`, and `Consumption criteria` as `n/a`.
         - Update the auto-applied labels after creation if lane, area, priority, or risk do not match the task.
         - If the write-set touches shared-governance or other critical paths from `.github/guardrails/path-policy.json`, open the PR as draft.
         - Use child tasks for cross-lane write access instead of expanding the write-set informally.
@@ -24,8 +27,8 @@ body:
   - type: input
     id: epic-parent
     attributes:
-      label: Epic parent
-      description: Reference a parent epic when applicable. Use n/a for standalone tasks.
+      label: Planning epic
+      description: Reference a roadmap epic when applicable. This field never replaces an executable parent task. Use n/a when no epic is needed.
       placeholder: "#12 or n/a"
     validations:
       required: true
@@ -33,8 +36,8 @@ body:
   - type: input
     id: parent-task
     attributes:
-      label: Parent task
-      description: "For child tasks only. Use n/a otherwise. Alias accepted by guardrails: Task mae"
+      label: Executable parent task
+      description: "For cross-lane child tasks only. Use n/a for standalone tasks. Alias accepted by guardrails: Parent task / Task mae"
       placeholder: "#40 or n/a"
     validations:
       required: true
@@ -64,7 +67,7 @@ body:
     id: requester-lane
     attributes:
       label: Requester lane
-      description: "Use `n/a` unless this is a child task. Alias: Lane solicitante"
+      description: "Use `n/a` unless this is a cross-lane child task. Must differ from `Official lane`. Alias: Lane solicitante"
       options:
         - n/a
         - app-ui
@@ -110,7 +113,7 @@ body:
     id: child-tasks
     attributes:
       label: Child tasks
-      description: "List child issues or write `n/a`. Alias: Tasks filhas"
+      description: "List cross-lane child issues when this task is the executable integration parent, or write `n/a`. Alias: Tasks filhas"
       placeholder: |
         - #81 engine-finance child task
         - #82 app-ui child task
@@ -121,7 +124,7 @@ body:
     id: consumption-criteria
     attributes:
       label: Consumption criteria
-      description: "Required for child tasks. Use `n/a` for normal tasks. Alias: Criterio de consumo"
+      description: "Required only for cross-lane child tasks. Use `n/a` for standalone tasks and executable parent tasks. Alias: Criterio de consumo"
       placeholder: |
         n/a
         or

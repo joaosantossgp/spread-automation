@@ -113,6 +113,9 @@ issue_contract:
     - "Expected write-set"
     - "Risk classification"
   section_aliases:
+    planning_epic:
+      - "Planning epic"
+      - "Epic parent"
     owner:
       - "Current owner"
       - "Owner atual"
@@ -129,6 +132,7 @@ issue_contract:
       - "Risk classification"
       - "Classificacao de risco"
     parent_task:
+      - "Executable parent task"
       - "Parent task"
       - "Task mae"
     requester_lane:
