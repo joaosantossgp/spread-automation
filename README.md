@@ -14,7 +14,17 @@ Compara o período anterior, mapeia valores e atualiza a planilha de Spread com 
 5. Execute `python main.py`
 6. Selecione os arquivos, configure período e colunas, clique **Processar**
 
+## Status do Desktop Runtime
+
+- Entry point atual: `main.py`
+- Runtime atual: `main.py` importa `app.app.SpreadApp`
+- Tela atualmente montada: `app/screens/screen_1a.py`
+- GUI legado preservado: `app/gui.py` continua no repositorio como baseline operacional e referencia de paridade, mas nao e o launcher ativo
+- Fluxos adicionais como mode selector, Mode 1B e telas PDF ainda pertencem ao plano futuro ou ao baseline legado; nao estao todos expostos no runtime atual
+
 ## Estrutura do Projeto
+
+Visao resumida do repositorio. Para o estado real do desktop app hoje, use a secao `App tree atual` abaixo.
 
 ```
 spread_automation/
@@ -52,18 +62,36 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+### App tree atual
+
+```text
+app/
+  __init__.py
+  app.py                  # shell desktop atual carregado por main.py
+  gui.py                  # GUI legado preservado como baseline
+  screens/
+    __init__.py
+    screen_1a.py          # tela atualmente montada no runtime
+  widgets/
+    __init__.py           # widgets reutilizados pela tela atual
+```
+
 ## Uso
 
 ```bash
 python main.py
 ```
 
-Na GUI:
+No runtime atual:
 - **Arquivo Origem** → selecione `DadosDocumento.xlsx`
 - **Arquivo Spread** → selecione `Spread Proxy.xlsx`
 - **Tipo** → Consolidado ou Individual
 - **Período** → ano (`2024`) ou trimestre (`1T25`, `4T24`)
 - **Coluna Origem / Destino** → colunas no Spread para ler e escrever
+
+Observacao:
+- hoje a UI exposta por `main.py` cobre apenas o fluxo de Mode 1A
+- `app/gui.py` permanece no repositorio para preservar o baseline legado, inclusive comportamentos operacionais que ainda nao foram totalmente reincorporados na nova interface
 
 ## Desenvolvimento
 

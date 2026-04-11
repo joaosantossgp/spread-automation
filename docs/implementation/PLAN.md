@@ -6,6 +6,17 @@
 
 ---
 
+## Snapshot atual do desktop runtime
+
+- Entry point atual: `main.py`
+- Shell atual: `app/app.py`
+- Tela atualmente exposta: `app/screens/screen_1a.py`
+- Baseline legado preservado: `app/gui.py`
+- Leitura correta deste plano: referencias abaixo a `app/gui.py` pertencem ao desenho historico aprovado em 2026-04-09 e nao significam que `gui.py` continue sendo o launcher ativo do repositorio
+- Mode selector, telas adicionais e paridade completa com o legado ainda permanecem como trabalho planejado
+
+---
+
 ## Mapa de Dependencias
 
 ```
@@ -190,6 +201,11 @@ Phase 0 completa.
 **Objetivo:** Transformar a GUI funcional em experiencia profissional usando o Design System fornecido.
 
 **BLOQUEADO** ate Design System ser fornecido.
+
+Snapshot de implementacao:
+- o repositorio ja possui `app/app.py` e `app/screens/screen_1a.py`
+- o runtime atual ainda nao expoe `mode_selector.py`, `screen_1b.py` ou `screen_2.py`
+- `app/gui.py` foi mantido como baseline legado enquanto a shell nova ainda esta incompleta
 
 ### Entregaveis
 
