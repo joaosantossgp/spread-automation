@@ -77,7 +77,8 @@ $labels = @(
   @{ Name = "risk:contract-sensitive"; Color = "b60205"; Description = "Public contract or compatibility-sensitive change" },
   @{ Name = "lane:app-ui"; Color = "0052cc"; Description = "App UI lane" },
   @{ Name = "lane:engine-finance"; Color = "006b75"; Description = "Engine finance lane" },
-  @{ Name = "lane:ops-quality"; Color = "5319e7"; Description = "Ops and quality lane" }
+  @{ Name = "lane:ops-quality"; Color = "5319e7"; Description = "Ops and quality lane" },
+  @{ Name = "lane:master"; Color = "d93f0b"; Description = "Master orchestrator lane" }
 )
 
 foreach ($label in $labels) {
