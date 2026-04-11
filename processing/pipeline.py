@@ -18,11 +18,9 @@ from processing.dfc import inserir_depreciacao_dfc
 from processing.dmpl import inserir_dividendos_dm, inserir_aumentos_capital_dm
 from processing.highlights import destacar_inseridos, destacar_novos
 from processing.runtime_bridge import (
-    data_columns,
     next_data_column,
     special_row,
     spread_schema,
-    spread_start_row,
 )
 
 if XLWINGS:
@@ -41,35 +39,31 @@ def detectar_colunas(
     Para períodos anuais, busca entre D/F/H/J.
     Para trimestral, a coluna destino é sempre L.
     """
-    schema = spread_schema()
-    row_start = spread_start_row(start_row)
-    wb = load_workbook(spread_path, data_only=True)
-    ws = wb[schema.sheet_name] if schema.sheet_name in wb.sheetnames else wb.active
+    return detectar_colunas_normalized(
+        spread_path,
+        start_row=start_row,
+        trimestral=trimestral,
+    ).as_pair()
 
-    # Identifica quais colunas do grid fixo têm dados
-    colunas_grid = data_columns(include_quarterly=trimestral)
-    ultima_preenchida = None
 
-    for col_letter in colunas_grid:
-        c = col_txt_to_idx(col_letter) + 1  # openpyxl é 1-based
-        for r in range(row_start, min(row_start + 50, ws.max_row + 1)):
-            v = ws.cell(r, c).value
-            if v is not None and v != "":
-                ultima_preenchida = col_letter
-                break
+def detectar_colunas_normalized(
+    spread_path: Path,
+    start_row: int | None = None,
+    trimestral: bool = False,
+):
+    """
+    Retorna um resultado estruturado de auto-deteccao para consumo pela engine/UI.
 
-    wb.close()
+    O wrapper legado detectar_colunas() continua retornando tupla apenas quando
+    existe um slot livre explicito no grid configurado.
+    """
+    from engine.slot_detection import detect_spread_slot
 
-    if ultima_preenchida is None:
-        raise ValueError(
-            "Spread parece vazio — nenhuma coluna configurada de dados tem valores."
-        )
-
-    # Determina a próxima coluna no grid
-    if trimestral:
-        return ultima_preenchida, schema.columns.quarterly
-
-    return ultima_preenchida, next_data_column(ultima_preenchida)
+    return detect_spread_slot(
+        spread_path=spread_path,
+        start_row=start_row,
+        quarterly=trimestral,
+    )
 
 
 # ---------------------------------------------------------------------------

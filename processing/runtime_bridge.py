@@ -83,8 +83,19 @@ def next_data_column(current: str, *, include_quarterly: bool = False) -> str:
     return columns[index + 1]
 
 
+def has_next_data_column(current: str, *, include_quarterly: bool = False) -> bool:
+    normalized = current.strip().upper()
+    columns = data_columns(include_quarterly=include_quarterly)
+    try:
+        index = columns.index(normalized)
+    except ValueError as exc:
+        raise ValueError(f"Column {current!r} is not part of the configured spread grid.") from exc
+    return index + 1 < len(columns)
+
+
 __all__ = [
     "data_columns",
+    "has_next_data_column",
     "label_column_1based",
     "layer1_codes_for_label",
     "mapping_registry",
