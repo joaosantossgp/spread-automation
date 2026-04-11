@@ -36,6 +36,9 @@ venv/
 .claude/skills/governance-lanes-worktrees/assets/*
 !.claude/skills/governance-lanes-worktrees/assets/auto-merge.workflow.yml
 !.claude/skills/governance-lanes-worktrees/assets/post-merge.workflow.yml
+!.claude/skills/master-plan/
+.claude/skills/master-plan/*
+!.claude/skills/master-plan/SKILL.md
 .governance-bootstrap/
 
 # Arquivos antigos (removidos na reorganização)

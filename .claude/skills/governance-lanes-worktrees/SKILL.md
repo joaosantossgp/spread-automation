@@ -74,7 +74,7 @@ When inputs are omitted, defaults from [Config Schema](./references/config-schem
 - Platform: `github`
 - Locale: `en`
 - Autonomy mode: `conservative`
-- Lane preset: `frontend`, `backend`, `ops-quality`
+- Lane preset: `app-ui`, `engine-finance`, `ops-quality`, `master`
 - Merge strategy: `squash`
 - Bootstrap mode: `dry-run`
 - Overwrite policy: `preserve`

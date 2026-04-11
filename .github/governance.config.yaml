@@ -28,6 +28,7 @@ lanes:
     description: "Owns desktop UI and interaction flow"
     ownership_patterns:
       - "app/**"
+      - "themes/**"
     allow_shared_governance: true
     allow_critical_groups:
       - "shared-governance"
@@ -37,6 +38,13 @@ lanes:
     ownership_patterns:
       - "core/**"
       - "processing/**"
+      - "ingestion/**"
+      - "mapping/**"
+      - "mapping_tables/**"
+      - "spread/**"
+      - "validation/**"
+      - "engine/**"
+      - "templates/**"
     allow_shared_governance: true
     allow_critical_groups:
       - "shared-governance"
@@ -47,14 +55,41 @@ lanes:
     description: "Owns CI/CD, docs, scripts, and governance assets"
     ownership_patterns:
       - ".github/**"
+      - ".claude/**"
       - "docs/**"
       - "scripts/**"
-      - "config/**"
       - "*.md"
+      - "LICENSE"
+      - ".gitignore"
     allow_shared_governance: true
     allow_critical_groups:
       - "shared-governance"
       - "critical-bootstrap"
+  - id: "master"
+    display_name: "Master"
+    description: "Cross-cutting orchestrator: broad write access for bug fixes and unblocking work; planning mode for task proposal. Does NOT own governance — that stays with ops-quality."
+    ownership_patterns:
+      - "app/**"
+      - "themes/**"
+      - "core/**"
+      - "processing/**"
+      - "ingestion/**"
+      - "mapping/**"
+      - "mapping_tables/**"
+      - "spread/**"
+      - "validation/**"
+      - "engine/**"
+      - "templates/**"
+    allow_shared_governance: true
+    allow_critical_groups:
+      - "shared-governance"
+      - "critical-runtime"
+      - "critical-contract"
+    modes:
+      default: "execution"
+      plan:
+        description: "Read-only orchestration mode. No file edits. Deep research and structured task proposals only."
+        readonly: true
 
 labels:
   lane_prefix: "lane:"
@@ -199,18 +234,41 @@ path_policy:
   lane_allowlists:
     app-ui:
       - "app/**"
+      - "themes/**"
     engine-finance:
       - "core/**"
       - "processing/**"
+      - "ingestion/**"
+      - "mapping/**"
+      - "mapping_tables/**"
+      - "spread/**"
+      - "validation/**"
+      - "engine/**"
+      - "templates/**"
     ops-quality:
       - ".github/**"
+      - ".claude/**"
       - "docs/**"
       - "scripts/**"
+      - "assets/**"
       - "*.md"
       - "LICENSE"
       - ".gitignore"
+    master:
+      - "app/**"
+      - "themes/**"
+      - "core/**"
+      - "processing/**"
+      - "ingestion/**"
+      - "mapping/**"
+      - "mapping_tables/**"
+      - "spread/**"
+      - "validation/**"
+      - "engine/**"
+      - "templates/**"
   critical_groups:
     - name: "shared-governance"
+      description: "Shared governance and documentation boundaries"
       patterns:
         - "AGENTS.md"
         - "README.md"
@@ -220,19 +278,24 @@ path_policy:
         - "CHANGELOG.md"
         - "LICENSE"
         - ".gitignore"
+        - "build.spec"
         - "requirements.txt"
         - "main.py"
         - "docs/**"
-        - ".github/**"
+        - ".github/ISSUE_TEMPLATE/**"
+        - ".github/PULL_REQUEST_TEMPLATE.md"
+        - ".claude/**"
       owner_lane: "ops-quality"
       allowed_lanes:
         - "app-ui"
         - "engine-finance"
         - "ops-quality"
+        - "master"
       minimum_risk: "shared"
       require_draft: true
       require_compatibility: false
     - name: "critical-bootstrap"
+      description: "Setup and bootstrap-sensitive paths"
       patterns:
         - ".github/workflows/**"
         - ".github/guardrails/**"
@@ -250,16 +313,26 @@ path_policy:
       require_draft: true
       require_compatibility: false
     - name: "critical-runtime"
+      description: "Core runtime, mapping, ingestion, validation, and spread execution paths"
       patterns:
         - "core/**"
         - "processing/**"
+        - "ingestion/**"
+        - "mapping/**"
+        - "mapping_tables/**"
+        - "spread/**"
+        - "validation/**"
+        - "engine/**"
+        - "templates/**"
       owner_lane: "engine-finance"
       allowed_lanes:
         - "engine-finance"
+        - "master"
       minimum_risk: "shared"
       require_draft: true
       require_compatibility: false
     - name: "critical-contract"
+      description: "Public API and compatibility-sensitive paths"
       patterns:
         - "core/conta_map.py"
         - "core/utils.py"
@@ -267,6 +340,7 @@ path_policy:
       owner_lane: "engine-finance"
       allowed_lanes:
         - "engine-finance"
+        - "master"
       minimum_risk: "contract-sensitive"
       require_draft: true
       require_compatibility: true
@@ -277,6 +351,15 @@ path_policy:
       right:
         - "core/**"
         - "processing/**"
+        - "ingestion/**"
+        - "mapping/**"
+        - "mapping_tables/**"
+        - "spread/**"
+        - "validation/**"
+        - "engine/**"
+        - "templates/**"
+      exempt_lanes:
+        - "master"
 
 guardrails:
   workflow_file: ".github/workflows/pr-issue-guardrails.yml"
@@ -328,6 +411,7 @@ git_configuration:
     app-ui: "conservative"
     engine-finance: "conservative"
     ops-quality: "strict"
+    master: "strict"
   protected_settings:
     - "user.name"
     - "user.email"

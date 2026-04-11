@@ -65,6 +65,7 @@ risk:contract-sensitive|b60205|Public contract or compatibility-sensitive change
 lane:app-ui|0052cc|App UI lane
 lane:engine-finance|006b75|Engine finance lane
 lane:ops-quality|5319e7|Ops and quality lane
+lane:master|d93f0b|Master orchestrator lane
 EOF
 
 gh api --method PATCH "repos/$repo_name" \

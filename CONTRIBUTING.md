@@ -17,6 +17,7 @@ Check `.github/guardrails/path-policy.json` before choosing a lane or write-set.
 | `app-ui` | Desktop UI and presentation assets | `app/**`, `themes/**` |
 | `engine-finance` | Financial runtime, ingestion, mapping, spread, validation, and templates | `core/**`, `processing/**`, `ingestion/**`, `mapping/**`, `mapping_tables/**`, `spread/**`, `validation/**`, `engine/**`, `templates/**` |
 | `ops-quality` | Governance, docs, scripts, CI/CD, templates, and root markdown | `.github/**`, `.claude/**`, `docs/**`, `scripts/**`, `*.md`, `LICENSE`, `.gitignore` |
+| `master` | Cross-cutting orchestrator: bug fixes, unblocking, and broad corrections. Exempt from domain mix restrictions. Does NOT own governance (`critical-bootstrap` stays with `ops-quality`). Supports `master.plan` read-only mode for task planning. | `app/**`, `themes/**`, `core/**`, `processing/**`, `ingestion/**`, `mapping/**`, `mapping_tables/**`, `spread/**`, `validation/**`, `engine/**`, `templates/**` |
 
 Shared-governance paths such as `CONTRIBUTING.md`, `docs/**`, `.claude/**`, and `.github/ISSUE_TEMPLATE/**` require `risk:shared` and must open in a draft PR.
 
