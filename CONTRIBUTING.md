@@ -42,8 +42,8 @@ The standard flow stays issue-first for humans and normal agents. There is one e
 For Jules-originated PRs:
 
 1. Let Jules publish the PR first.
-2. Create a task issue after the PR exists.
-3. Set the normal task contract on that issue:
+2. GitHub Actions detects the Jules body marker, applies `source:jules`, and creates the task issue automatically when one is missing.
+3. The workflow syncs the normal task contract on that issue:
    - required labels
    - `Current owner`
    - `Official lane`
@@ -51,8 +51,8 @@ For Jules-originated PRs:
    - `Expected write-set`
    - `Risk classification`
    - `Source PR`
-4. Update the Jules PR body to include `Closes #<issue-number>`.
-5. Keep the PR in draft until the Jules governance workflow passes.
+4. The workflow updates the Jules PR body to include `Closes #<issue-number>`.
+5. If the changed paths require draft status, configure repository secret `JULES_GOVERNANCE_TOKEN` to let the workflow convert the PR to draft automatically. Without that secret, the check fails explicitly and the PR must be converted manually.
 6. Do not reuse this exception for non-Jules PRs.
 
 ## Required Issue Fields

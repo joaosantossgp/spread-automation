@@ -20,7 +20,10 @@ jobs:
     steps:
       - name: Validate Jules-only post-publication task intake
         uses: actions/github-script@v7
+        env:
+          JULES_GOVERNANCE_TOKEN_CONFIGURED: ${{ secrets.JULES_GOVERNANCE_TOKEN != '' }}
         with:
+          github-token: ${{ secrets.JULES_GOVERNANCE_TOKEN != '' && secrets.JULES_GOVERNANCE_TOKEN || github.token }}
           script: |
             const RISK_RANK = {
               safe: 0,
@@ -30,10 +33,14 @@ jobs:
 
             const CLOSE_KEYWORDS = ["Closes", "Fixes", "Resolves"];
             const JULES_LABEL = "source:jules";
+            const DEFAULT_PRIORITY_LABEL = "priority:p2";
             const JULES_MARKERS = [
               "PR created automatically by Jules",
               "jules.google.com/task/",
             ];
+            const ISSUE_LABEL_PREFIXES = ["kind:", "status:", "priority:", "area:", "risk:", "lane:"];
+            const JULES_TOKEN_CONFIGURED =
+              (process.env.JULES_GOVERNANCE_TOKEN_CONFIGURED || "").toLowerCase() === "true";
 
             const SECTION_ALIASES = {
               owner: ["Current owner", "Owner atual"],
@@ -52,9 +59,17 @@ jobs:
                 .trim();
             }
 
+            function dedupe(values) {
+              return [...new Set((values || []).filter(Boolean))];
+            }
+
+            function escapeRegExp(value) {
+              return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            }
+
             function extractSection(body, heading) {
               const lines = (body || "").split(/\r?\n/);
-              const escapedHeading = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const escapedHeading = escapeRegExp(heading);
               const headingPattern = new RegExp(`^#{2,6}\\s+${escapedHeading}\\s*$`, "i");
               let capturing = false;
               const collected = [];
@@ -220,6 +235,285 @@ jobs:
               );
             }
 
+            function allFilesAreDocs(filenames) {
+              return (filenames || []).every((file) => {
+                const normalized = normalizePath(file).toLowerCase();
+                return normalized.startsWith("docs/") || normalized.endsWith(".md");
+              });
+            }
+
+            function inferArea(lane, filenames) {
+              if (allFilesAreDocs(filenames)) {
+                return "docs";
+              }
+
+              if (lane === "app-ui") {
+                return "ui";
+              }
+
+              if (lane === "engine-finance") {
+                return "engine";
+              }
+
+              return "governance";
+            }
+
+            function sanitizeTaskTitle(title) {
+              const cleaned = (title || "")
+                .replace(/^[^A-Za-z0-9]+/, "")
+                .replace(/\s+/g, " ")
+                .trim();
+              return cleaned || "published Jules pull request";
+            }
+
+            function buildTaskTitle(pullRequest) {
+              return `[Task] intake Jules PR #${pullRequest.number}: ${sanitizeTaskTitle(pullRequest.title)}`.slice(
+                0,
+                240,
+              );
+            }
+
+            function buildWriteSet(filenames) {
+              return filenames.map((file) => `- \`${file}\``).join("\n");
+            }
+
+            function buildIssueBody({ issueNumber, owner, pullRequest, filenames, inference }) {
+              const issueRef = issueNumber === "TBD" ? "TBD" : String(issueNumber);
+              const workspace = `.claude/worktrees/${inference.lane}/${issueRef}-jules-pr-${pullRequest.number}/`;
+              const notes = [
+                `Task created or synchronized automatically from Jules PR #${pullRequest.number}.`,
+                `Original PR title: ${pullRequest.title}`,
+                `Inferred lane from path policy: ${inference.lane}`,
+                `Inferred risk from changed paths: ${inference.risk}`,
+                ...inference.notes,
+              ];
+
+              return [
+                "## Planning epic",
+                "n/a",
+                "",
+                "## Executable parent task",
+                "n/a",
+                "",
+                "## Current owner",
+                owner,
+                "",
+                "## Official lane",
+                inference.lane,
+                "",
+                "## Requester lane",
+                "n/a",
+                "",
+                "## Task workspace",
+                workspace,
+                "",
+                "## Source PR",
+                `#${pullRequest.number}`,
+                "",
+                "## Expected write-set",
+                buildWriteSet(filenames),
+                "",
+                "## Risk classification",
+                inference.risk,
+                "",
+                "## Child tasks",
+                "n/a",
+                "",
+                "## Consumption criteria",
+                "n/a",
+                "",
+                "## Context",
+                notes.map((note) => `- ${note}`).join("\n"),
+                "",
+                "## Acceptance criteria",
+                `- [ ] PR body includes \`Closes #${issueRef}\``,
+                "- [ ] Issue metadata stays aligned with the current Jules PR file list",
+                "- [ ] Lane and risk stay consistent with `.github/guardrails/path-policy.json`",
+                "- [ ] Draft requirement is satisfied before merge when shared or critical paths are touched",
+                "",
+              ].join("\n");
+            }
+
+            function buildManagedIssueLabels(existingLabels, inference) {
+              const preservedLabels = (existingLabels || []).filter(
+                (label) => !ISSUE_LABEL_PREFIXES.some((prefix) => label.startsWith(prefix)),
+              );
+              return dedupe([
+                ...preservedLabels,
+                "kind:task",
+                "status:in-progress",
+                DEFAULT_PRIORITY_LABEL,
+                `area:${inference.area}`,
+                `risk:${inference.risk}`,
+                `lane:${inference.lane}`,
+              ]);
+            }
+
+            function arrayEquals(left, right) {
+              const normalizedLeft = dedupe(left).sort();
+              const normalizedRight = dedupe(right).sort();
+              return (
+                normalizedLeft.length === normalizedRight.length &&
+                normalizedLeft.every((value, index) => value === normalizedRight[index])
+              );
+            }
+
+            function replaceSection(body, heading, content) {
+              const trimmedBody = (body || "").trim();
+              const sectionBlock = `## ${heading}\n${content.trim()}`.trim();
+              const sectionPattern = new RegExp(
+                `(^|\\n)##\\s+${escapeRegExp(heading)}\\s*\\n[\\s\\S]*?(?=\\n##\\s+|$)`,
+                "i",
+              );
+
+              if (!trimmedBody) {
+                return `${sectionBlock}\n`;
+              }
+
+              if (sectionPattern.test(trimmedBody)) {
+                return `${trimmedBody.replace(sectionPattern, `$1${sectionBlock}`)}\n`;
+              }
+
+              return `${trimmedBody}\n\n${sectionBlock}\n`;
+            }
+
+            function buildPrBody(body, issueNumber) {
+              let nextBody = (body || "").trim();
+              nextBody = replaceSection(nextBody, "Linked Task", `Closes #${issueNumber}`);
+              nextBody = replaceSection(
+                nextBody,
+                "Governance Metadata",
+                `- Intake flow: source:jules\n- Linked task: #${issueNumber}`,
+              );
+              return nextBody.trim();
+            }
+
+            function classifyFile(policy, file) {
+              const matchedGroups = (policy.criticalGroups || []).filter((group) =>
+                matchesAnyPattern(file, group.patterns),
+              );
+
+              if (matchedGroups.length > 1) {
+                const allowedLanes = matchedGroups.reduce(
+                  (allowed, group) => allowed.filter((lane) => group.allowedLanes.includes(lane)),
+                  matchedGroups[0].allowedLanes.slice(),
+                );
+                return {
+                  allowedLanes,
+                  ownerLanes: dedupe(matchedGroups.map((group) => group.ownerLane).filter(Boolean)),
+                  minimumRisk: matchedGroups.reduce(
+                    (risk, group) => highestRisk(risk, group.minimumRisk),
+                    "safe",
+                  ),
+                  requireDraft: matchedGroups.some((group) => !!group.requireDraft),
+                  requireCompatibility: matchedGroups.some((group) => !!group.requireCompatibility),
+                };
+              }
+
+              if (matchedGroups.length === 1) {
+                const [group] = matchedGroups;
+                return {
+                  allowedLanes: group.allowedLanes.slice(),
+                  ownerLanes: group.ownerLane ? [group.ownerLane] : [],
+                  minimumRisk: group.minimumRisk,
+                  requireDraft: !!group.requireDraft,
+                  requireCompatibility: !!group.requireCompatibility,
+                };
+              }
+
+              return {
+                allowedLanes: Object.entries(policy.laneAllowlists || {})
+                  .filter(([, patterns]) => matchesAnyPattern(file, patterns))
+                  .map(([lane]) => lane),
+                ownerLanes: [],
+                minimumRisk: "safe",
+                requireDraft: false,
+                requireCompatibility: false,
+              };
+            }
+
+            function inferTaskMetadata(policy, filenames) {
+              const fileClassifications = filenames.map((file) => ({
+                file,
+                ...classifyFile(policy, file),
+              }));
+
+              let minimumRequiredRisk = "safe";
+              let requiresDraft = false;
+              let requiresCompatibility = false;
+              let candidateLanes = null;
+              const ownerLaneHints = [];
+              const notes = [];
+              const unclassifiedFiles = [];
+
+              for (const classification of fileClassifications) {
+                if (!classification.allowedLanes.length) {
+                  unclassifiedFiles.push(classification.file);
+                  continue;
+                }
+
+                candidateLanes = candidateLanes
+                  ? candidateLanes.filter((lane) => classification.allowedLanes.includes(lane))
+                  : classification.allowedLanes.slice();
+
+                ownerLaneHints.push(...classification.ownerLanes);
+                minimumRequiredRisk = highestRisk(minimumRequiredRisk, classification.minimumRisk);
+                requiresDraft = requiresDraft || classification.requireDraft;
+                requiresCompatibility = requiresCompatibility || classification.requireCompatibility;
+              }
+
+              candidateLanes = candidateLanes || [];
+              const uniqueOwnerLanes = dedupe(ownerLaneHints);
+              const nonMasterCandidates = candidateLanes.filter((lane) => lane !== "master");
+
+              let lane = "ops-quality";
+              if (candidateLanes.length === 1) {
+                lane = candidateLanes[0];
+              } else if (nonMasterCandidates.length === 1) {
+                lane = nonMasterCandidates[0];
+              } else if (
+                uniqueOwnerLanes.length === 1 &&
+                candidateLanes.includes(uniqueOwnerLanes[0])
+              ) {
+                lane = uniqueOwnerLanes[0];
+              } else if (candidateLanes.includes("ops-quality")) {
+                lane = "ops-quality";
+              }
+
+              if (!candidateLanes.length) {
+                notes.push("No unambiguous lane candidate was found; using ops-quality fallback.");
+              } else if (candidateLanes.length > 1 && lane === "ops-quality") {
+                notes.push(
+                  `Multiple lane candidates remained (${candidateLanes.join(", ")}); using ops-quality fallback.`,
+                );
+              }
+
+              const disallowedMixes = [];
+              for (const mix of policy.disallowedDomainMixes || []) {
+                const leftTouched = filenames.some((file) => matchesAnyPattern(file, mix.left));
+                const rightTouched = filenames.some((file) => matchesAnyPattern(file, mix.right));
+
+                if (leftTouched && rightTouched) {
+                  const exemptLanes = mix.exemptLanes || mix.exempt_lanes || [];
+                  if (!exemptLanes.includes(lane)) {
+                    disallowedMixes.push(mix.name);
+                  }
+                }
+              }
+
+              return {
+                lane,
+                area: inferArea(lane, filenames),
+                risk: minimumRequiredRisk,
+                requiresDraft,
+                requiresCompatibility,
+                candidateLanes,
+                unclassifiedFiles,
+                disallowedMixes,
+                notes,
+              };
+            }
+
             async function ensureRepoLabel(name, color, description) {
               try {
                 await github.rest.issues.getLabel({
@@ -252,33 +546,171 @@ jobs:
               });
             }
 
-            async function convertToDraft(pullRequestId) {
+            async function tryConvertToDraft(pullRequestId) {
               if (!pullRequestId) {
-                return;
+                return {
+                  ok: false,
+                  message: "Jules PR draft enforcement could not run because the pull request node id is missing.",
+                };
               }
 
-              await github.graphql(
-                `
-                  mutation($pullRequestId: ID!) {
-                    convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
-                      pullRequest {
-                        id
-                        isDraft
+              try {
+                await github.graphql(
+                  `
+                    mutation($pullRequestId: ID!) {
+                      convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
+                        pullRequest {
+                          id
+                          isDraft
+                        }
                       }
                     }
-                  }
-                `,
-                { pullRequestId },
+                  `,
+                  { pullRequestId },
+                );
+                return { ok: true };
+              } catch (error) {
+                if (!JULES_TOKEN_CONFIGURED) {
+                  return {
+                    ok: false,
+                    message:
+                      "Jules PR touches shared or critical paths and must be draft, but automatic draft conversion is not available with the default GITHUB_TOKEN. Configure repository secret JULES_GOVERNANCE_TOKEN with pull request write access to enable full automation, or convert the PR to draft manually.",
+                  };
+                }
+
+                return {
+                  ok: false,
+                  message: `Jules PR must be draft, but automatic conversion failed even with JULES_GOVERNANCE_TOKEN configured: ${error.message}`,
+                };
+              }
+            }
+
+            async function fetchPolicy(ref) {
+              const { data: policyFile } = await github.rest.repos.getContent({
+                ...context.repo,
+                path: ".github/guardrails/path-policy.json",
+                ref,
+              });
+
+              return JSON.parse(
+                Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
               );
             }
 
+            async function fetchChangedFiles(prNumber) {
+              const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+                ...context.repo,
+                pull_number: prNumber,
+                per_page: 100,
+              });
+
+              return changedFiles.map((file) => normalizePath(file.filename)).filter(Boolean);
+            }
+
+            async function createAutomatedIssue(pullRequest, filenames, inference) {
+              const owner = pullRequest.user?.login ? `@${pullRequest.user.login}` : "jules";
+              const placeholderBody = buildIssueBody({
+                issueNumber: "TBD",
+                owner,
+                pullRequest,
+                filenames,
+                inference,
+              });
+              const labels = buildManagedIssueLabels([], inference);
+
+              const { data: createdIssue } = await github.rest.issues.create({
+                ...context.repo,
+                title: buildTaskTitle(pullRequest),
+                body: placeholderBody,
+                labels,
+              });
+
+              const finalBody = buildIssueBody({
+                issueNumber: createdIssue.number,
+                owner,
+                pullRequest,
+                filenames,
+                inference,
+              });
+
+              await github.rest.issues.update({
+                ...context.repo,
+                issue_number: createdIssue.number,
+                body: finalBody,
+              });
+
+              const { data: refreshedIssue } = await github.rest.issues.get({
+                ...context.repo,
+                issue_number: createdIssue.number,
+              });
+
+              return refreshedIssue;
+            }
+
+            async function syncIssue(issue, pullRequest, filenames, inference) {
+              const issueLabels = issue.labels.map((label) =>
+                typeof label === "string" ? label : label.name,
+              );
+              const existingOwner = extractSectionByAliases(issue.body || "", SECTION_ALIASES.owner);
+              const owner =
+                existingOwner && !isNotApplicable(existingOwner) && !/^tbd$/i.test(existingOwner)
+                  ? existingOwner
+                  : pullRequest.user?.login
+                    ? `@${pullRequest.user.login}`
+                    : "jules";
+
+              const nextBody = buildIssueBody({
+                issueNumber: issue.number,
+                owner,
+                pullRequest,
+                filenames,
+                inference,
+              });
+              if ((issue.body || "").trim() !== nextBody.trim()) {
+                await github.rest.issues.update({
+                  ...context.repo,
+                  issue_number: issue.number,
+                  body: nextBody,
+                });
+              }
+
+              const nextLabels = buildManagedIssueLabels(issueLabels, inference);
+              if (!arrayEquals(issueLabels, nextLabels)) {
+                await github.rest.issues.setLabels({
+                  ...context.repo,
+                  issue_number: issue.number,
+                  labels: nextLabels,
+                });
+              }
+
+              const { data: refreshedIssue } = await github.rest.issues.get({
+                ...context.repo,
+                issue_number: issue.number,
+              });
+              return refreshedIssue;
+            }
+
+            async function ensurePrBodyLinked(pullRequest, issueNumber) {
+              const nextBody = buildPrBody(pullRequest.body || "", issueNumber);
+              if ((pullRequest.body || "").trim() === nextBody.trim()) {
+                return nextBody;
+              }
+
+              await github.rest.pulls.update({
+                ...context.repo,
+                pull_number: pullRequest.number,
+                body: nextBody,
+              });
+
+              return nextBody;
+            }
+
             const pullRequest = context.payload.pull_request;
-            const prBody = pullRequest.body || "";
             const prLabels = (pullRequest.labels || []).map((label) =>
               typeof label === "string" ? label : label.name,
             );
 
-            if (!isJulesPr(prBody, prLabels)) {
+            if (!isJulesPr(pullRequest.body || "", prLabels)) {
               core.info("Not a Jules PR. Skipping Jules-specific governance validation.");
               return;
             }
@@ -286,23 +718,29 @@ jobs:
             await ensureRepoLabel(JULES_LABEL, "1d76db", "PR published automatically by Jules");
             await ensurePrLabel(pullRequest.number, prLabels);
 
-            const issueNumber = parseLinkedIssue(prBody);
-            if (!issueNumber) {
-              if (!pullRequest.draft) {
-                await convertToDraft(pullRequest.node_id);
-                core.info("Converted Jules PR to draft because intake issue is still missing.");
-              }
-
-              core.setFailed(
-                "Jules PR requires post-publication intake. Create a task issue, fill lane/workspace/write-set/risk plus Source PR, then update the PR body with Closes #<issue-number>.",
-              );
+            const filenames = await fetchChangedFiles(pullRequest.number);
+            if (filenames.length === 0) {
+              core.setFailed(`PR #${pullRequest.number} has no changed files.`);
               return;
             }
 
-            const { data: issue } = await github.rest.issues.get({
-              ...context.repo,
-              issue_number: issueNumber,
-            });
+            const policy = await fetchPolicy(pullRequest.head.sha);
+            const inference = inferTaskMetadata(policy, filenames);
+
+            let issueNumber = parseLinkedIssue(pullRequest.body || "");
+            let issue;
+            if (!issueNumber) {
+              issue = await createAutomatedIssue(pullRequest, filenames, inference);
+              issueNumber = issue.number;
+              pullRequest.body = await ensurePrBodyLinked(pullRequest, issueNumber);
+              core.info(`Created task issue #${issueNumber} and linked the Jules PR automatically.`);
+            } else {
+              const response = await github.rest.issues.get({
+                ...context.repo,
+                issue_number: issueNumber,
+              });
+              issue = response.data;
+            }
 
             if (issue.pull_request) {
               core.setFailed(`#${issueNumber} is a pull request. Link this Jules PR to a task issue instead.`);
@@ -313,6 +751,9 @@ jobs:
               core.setFailed(`Issue #${issueNumber} must remain open while the Jules PR is under review.`);
               return;
             }
+
+            issue = await syncIssue(issue, pullRequest, filenames, inference);
+            pullRequest.body = await ensurePrBodyLinked(pullRequest, issue.number);
 
             const labels = issue.labels.map((label) => (typeof label === "string" ? label : label.name));
 
@@ -422,29 +863,6 @@ jobs:
               return;
             }
 
-            const { data: policyFile } = await github.rest.repos.getContent({
-              ...context.repo,
-              path: ".github/guardrails/path-policy.json",
-              ref: pullRequest.head.sha,
-            });
-
-            const policy = JSON.parse(
-              Buffer.from(policyFile.content, policyFile.encoding).toString("utf8"),
-            );
-
-            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
-              ...context.repo,
-              pull_number: pullRequest.number,
-              per_page: 100,
-            });
-
-            const filenames = changedFiles.map((file) => normalizePath(file.filename)).filter(Boolean);
-
-            if (filenames.length === 0) {
-              core.setFailed(`PR #${pullRequest.number} has no changed files.`);
-              return;
-            }
-
             const writePatterns = parseListSection(writeSet);
             if (writePatterns.length === 0) {
               core.setFailed(`Issue #${issueNumber} expected write-set must contain at least one item.`);
@@ -460,116 +878,54 @@ jobs:
               }
             }
 
-            let minimumRequiredRisk = "safe";
-            let requiresDraft = false;
-            let requiresCompatibility = false;
+            if (inference.unclassifiedFiles.length > 0) {
+              core.setFailed(
+                `These files are not classified in .github/guardrails/path-policy.json: ${inference.unclassifiedFiles.join(", ")}.`,
+              );
+              return;
+            }
 
             for (const file of filenames) {
-              const matchedGroups = (policy.criticalGroups || []).filter((group) =>
-                matchesAnyPattern(file, group.patterns),
-              );
-
-              if (matchedGroups.length > 1) {
-                core.info(
-                  `File "${file}" matched multiple critical groups: ${matchedGroups.map((g) => g.name).join(", ")}. Applying most-restrictive-wins.`,
-                );
-                const intersectedLanes = matchedGroups.reduce(
-                  (allowed, group) => allowed.filter((lane) => group.allowedLanes.includes(lane)),
-                  matchedGroups[0].allowedLanes.slice(),
-                );
-
-                if (!intersectedLanes.includes(laneFromLabel)) {
-                  core.setFailed(
-                    `Lane "${laneFromLabel}" cannot change "${file}". Effective allowed lanes: ${intersectedLanes.join(", ")}.`,
-                  );
-                  return;
-                }
-
-                for (const group of matchedGroups) {
-                  minimumRequiredRisk = highestRisk(minimumRequiredRisk, group.minimumRisk);
-                  requiresDraft = requiresDraft || !!group.requireDraft;
-                  requiresCompatibility = requiresCompatibility || !!group.requireCompatibility;
-                }
-                continue;
-              }
-
-              if (matchedGroups.length === 1) {
-                const [group] = matchedGroups;
-
-                if (!group.allowedLanes.includes(laneFromLabel)) {
-                  core.setFailed(
-                    `Lane "${laneFromLabel}" cannot change "${file}". Group "${group.name}" allows: ${group.allowedLanes.join(", ")}.`,
-                  );
-                  return;
-                }
-
-                minimumRequiredRisk = highestRisk(minimumRequiredRisk, group.minimumRisk);
-                requiresDraft = requiresDraft || !!group.requireDraft;
-                requiresCompatibility = requiresCompatibility || !!group.requireCompatibility;
-                continue;
-              }
-
-              const allowedLanes = Object.entries(policy.laneAllowlists || {})
-                .filter(([, patterns]) => matchesAnyPattern(file, patterns))
-                .map(([lane]) => lane);
-
-              if (allowedLanes.length === 0) {
+              const classification = classifyFile(policy, file);
+              if (!classification.allowedLanes.includes(laneFromLabel)) {
                 core.setFailed(
-                  `File "${file}" is not classified in .github/guardrails/path-policy.json. Classify path before updating PR.`,
-                );
-                return;
-              }
-
-              if (!allowedLanes.includes(laneFromLabel)) {
-                core.setFailed(
-                  `Lane "${laneFromLabel}" does not cover file "${file}". Allowed lanes: ${allowedLanes.join(", ")}.`,
+                  `Lane "${laneFromLabel}" does not cover file "${file}". Allowed lanes: ${classification.allowedLanes.join(", ")}.`,
                 );
                 return;
               }
             }
 
-            if (RISK_RANK[risk] < RISK_RANK[minimumRequiredRisk]) {
+            if (RISK_RANK[risk] < RISK_RANK[inference.risk]) {
               core.setFailed(
-                `Issue #${issueNumber} risk "${risk}" is lower than required minimum "${minimumRequiredRisk}" for changed paths.`,
+                `Issue #${issueNumber} risk "${risk}" is lower than required minimum "${inference.risk}" for changed paths.`,
               );
               return;
             }
 
-            for (const mix of policy.disallowedDomainMixes || []) {
-              const leftTouched = filenames.some((file) => matchesAnyPattern(file, mix.left));
-              const rightTouched = filenames.some((file) => matchesAnyPattern(file, mix.right));
+            if (inference.disallowedMixes.length > 0) {
+              core.setFailed(
+                `PR violates disallowed domain mix(s): ${inference.disallowedMixes.join(", ")}. Split work into lane-specific tasks/PRs.`,
+              );
+              return;
+            }
 
-              if (leftTouched && rightTouched) {
-                const exemptLanes = mix.exemptLanes || mix.exempt_lanes || [];
-                if (exemptLanes.includes(laneFromLabel)) {
-                  continue;
-                }
-
-                core.setFailed(
-                  `PR violates disallowed domain mix "${mix.name}". Split work into lane-specific tasks/PRs.`,
-                );
+            if (inference.requiresDraft && !pullRequest.draft) {
+              const draftResult = await tryConvertToDraft(pullRequest.node_id);
+              if (!draftResult.ok) {
+                core.setFailed(draftResult.message);
                 return;
               }
             }
 
-            if (
-              ["opened", "reopened"].includes(context.payload.action) &&
-              requiresDraft &&
-              !pullRequest.draft
-            ) {
-              core.setFailed(`Jules PR touching critical/shared paths must open as draft.`);
-              return;
-            }
-
-            if (requiresCompatibility) {
-              const compatibility = extractSectionByAliases(prBody, SECTION_ALIASES.compatibility);
+            if (inference.requiresCompatibility) {
+              const compatibility = extractSectionByAliases(pullRequest.body || "", SECTION_ALIASES.compatibility);
               const hasPolicy =
                 compatibility.includes("additive-only") ||
                 compatibility.includes("breaking-approved");
 
               if (!hasPolicy) {
                 core.setFailed(
-                  `PR touching contract-sensitive paths must declare compatibility policy in a compatibility section.`,
+                  "PR touching contract-sensitive paths must declare compatibility policy in a compatibility section.",
                 );
                 return;
               }
