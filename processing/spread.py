@@ -36,13 +36,49 @@ def valor_corresp(
     abas: Dict[str, pd.DataFrame],
     n: int, prev: str, curr: str
 ) -> int | None:
+    """
+    Versão legada/individual do matching por valor.
+    Para melhor performance em loops, prefira usar um mapa pré-calculado.
+    """
     for df in abas.values():
         if prev not in df.columns or curr not in df.columns:
             continue
-        hit = df[df[prev].apply(normaliza_num) == n]
-        if not hit.empty:
-            return normaliza_num(hit[curr].iloc[0])
+        # Filtra a coluna 'prev' para encontrar o valor 'n' normalizado
+        # Otimização: evita .apply() se possível ou usa indexação
+        mask = df[prev].apply(normaliza_num) == n
+        if mask.any():
+            return normaliza_num(df.loc[mask, curr].iloc[0])
     return None
+
+
+def criar_mapa_corresp(
+    abas: Dict[str, pd.DataFrame],
+    prev: str, curr: str
+) -> Dict[int, int]:
+    """
+    Cria um dicionário de lookup {valor_antigo: valor_atual} normalizado.
+    Varre todas as abas da Origem.
+    """
+    mapa: Dict[int, int] = {}
+    for df in abas.values():
+        if prev not in df.columns or curr not in df.columns:
+            continue
+        # Extrai as colunas e normaliza em lote
+        # Usamos dropna para ignorar valores que não normalizam para int
+        temp_df = pd.DataFrame({
+            'v_prev': df[prev].apply(normaliza_num),
+            'v_curr': df[curr].apply(normaliza_num)
+        }).dropna()
+
+        # Converte para dict (o último valor encontrado para uma chave prevalece)
+        # Invertemos a ordem se quisermos que o primeiro prevaleça,
+        # mas aqui seguimos o comportamento de valor_corresp que pega o primeiro hit.
+        # Então percorremos em ordem reversa para o dict.update ou apenas pegamos o primeiro.
+        for _, row in temp_df.iterrows():
+            v_prev = int(row['v_prev'])
+            if v_prev not in mapa:
+                mapa[v_prev] = int(row['v_curr'])
+    return mapa
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +140,9 @@ def atualizar_ws(
     label_col = label_column_1based()
     schema_skip_rows = skip_rows()
 
+    # Cache para Camada 2
+    mapa_corresp = criar_mapa_corresp(abas, ant, atual)
+
     num_pat = re.compile(r"[-+]?\d[\d\.,]*")
     try:
         max_row = ws.max_row
@@ -137,7 +176,7 @@ def atualizar_ws(
                 def lit_repl(m: re.Match) -> str:
                     tok = m.group(0)
                     n0 = normaliza_num(tok.lstrip("+-"))
-                    n1 = valor_corresp(abas, n0, ant, atual)
+                    n1 = mapa_corresp.get(n0)
                     if n1 is not None:
                         used_vals.add(n1)
                         sign = tok[0] if tok[0] in "+-" else ""
@@ -155,13 +194,13 @@ def atualizar_ws(
                         used_vals.add(novo)
             else:
                 # fórmula complexa
-                mp = lambda n: valor_corresp(abas, n, ant, atual)
+                mp = lambda n: mapa_corresp.get(n)
                 destino = adjust_complex_formula(v, delta, mp, used_vals)
                 wrote = destino != v
 
         elif (n := normaliza_num(v)) is not None:
             # ── Camada 2: matching por valor numérico ──
-            novo = valor_corresp(abas, n, ant, atual)
+            novo = mapa_corresp.get(n)
             # ── Camada 1: fallback por CD_CONTA CVM ──
             if novo is None:
                 novo = valor_corresp_por_conta(label, abas, atual)
