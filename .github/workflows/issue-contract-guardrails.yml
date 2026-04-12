@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate issue planning and parent-task contracts
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const SECTION_ALIASES = {
