@@ -35,6 +35,26 @@ Shared-governance paths such as `CONTRIBUTING.md`, `docs/**`, `.claude/**`, and 
 5. Create a dedicated branch and worktree for the task.
 6. Open one official PR for the task with `Closes #<issue-number>` in the body.
 
+## Jules-Only PR-First Intake
+
+The standard flow stays issue-first for humans and normal agents. There is one exception: PRs published automatically by Jules (Google Labs).
+
+For Jules-originated PRs:
+
+1. Let Jules publish the PR first.
+2. Create a task issue after the PR exists.
+3. Set the normal task contract on that issue:
+   - required labels
+   - `Current owner`
+   - `Official lane`
+   - `Task workspace`
+   - `Expected write-set`
+   - `Risk classification`
+   - `Source PR`
+4. Update the Jules PR body to include `Closes #<issue-number>`.
+5. Keep the PR in draft until the Jules governance workflow passes.
+6. Do not reuse this exception for non-Jules PRs.
+
 ## Required Issue Fields
 
 Every executable task must declare:
@@ -44,6 +64,10 @@ Every executable task must declare:
 - `Task workspace`: the dedicated worktree path.
 - `Expected write-set`: the exact files or globs the task may change.
 - `Risk classification`: `safe`, `shared`, or `contract-sensitive`.
+
+For Jules intake tasks, also declare:
+
+- `Source PR`: the Jules PR being governed, for example `#44`. Use `n/a` for normal issue-first tasks.
 
 Child tasks must also declare:
 

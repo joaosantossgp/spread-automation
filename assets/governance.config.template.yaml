@@ -165,6 +165,9 @@ issue_contract:
     consumption:
       - "Consumption criteria"
       - "Criterio de consumo"
+    source_pr:
+      - "Source PR"
+      - "PR de origem"
   closes_keywords:
     - "Closes"
     - "Fixes"
@@ -195,6 +198,31 @@ pull_request_contract:
   poll_seconds: 10
   timeout_seconds: 1800
   requires_issue_closure_line: true
+
+special_pr_flows:
+  jules:
+    enabled: true
+    workflow_file: ".github/workflows/jules-pr-governance.yml"
+    detection:
+      body_markers:
+        - "PR created automatically by Jules"
+        - "jules.google.com/task/"
+      persistent_pr_label: "source:jules"
+    intake_mode: "pr-first-exception"
+    task_creation_timing: "after_pr_open"
+    branch_pattern_exempt: true
+    required_issue_fields:
+      - "Current owner"
+      - "Official lane"
+      - "Task workspace"
+      - "Expected write-set"
+      - "Risk classification"
+      - "Source PR"
+    required_follow_up:
+      - "create task issue after PR publication"
+      - "set required labels and issue metadata"
+      - "update PR body with Closes #<issue-number>"
+      - "keep PR draft until governance intake passes"
 
 worktree:
   root: ".claude/worktrees"
@@ -414,6 +442,7 @@ artifacts:
   issue_template_config: ".github/ISSUE_TEMPLATE/config.yml"
   pull_request_template: ".github/PULL_REQUEST_TEMPLATE.md"
   guardrails_workflow: ".github/workflows/pr-issue-guardrails.yml"
+  jules_guardrails_workflow: ".github/workflows/jules-pr-governance.yml"
   path_policy_file: ".github/guardrails/path-policy.json"
   governance_doc: "docs/governance/parallel-lanes.md"
   operators_runbook: "docs/governance/operators-runbook.md"
