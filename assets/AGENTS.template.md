@@ -23,6 +23,13 @@ At the start of each executable chat:
 6. Complete PR only after required checks are green.
 7. Confirm linked issue closure and branch cleanup.
 
+## Jules PR exception
+- This exception exists only for PRs published automatically by Jules (Google Labs).
+- Jules may publish a PR before a task issue exists.
+- After a Jules PR opens, create the task issue, record the source PR, declare lane/workspace/write-set/risk, and update the PR body with `Closes #<issue-number>`.
+- Keep the Jules PR in draft until the post-publication governance intake is complete.
+- Do not use this exception for human, Codex, or other automation PRs.
+
 ## Branch and worktree
 - Branch pattern: <lane>/<issue-number>-<slug>
 - Worktree pattern: .claude/worktrees/<lane>/<issue-number>-<slug>/

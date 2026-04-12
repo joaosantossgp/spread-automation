@@ -142,6 +142,7 @@ Detailed lifecycle: [Operation Flow](./references/operation-flow.md).
 - [Issue Config Template](./assets/issue-config.yml)
 - [PR Template](./assets/pull_request.template.md)
 - [Guardrail Workflow Template](./assets/pr-issue-guardrails.workflow.yml)
+- [Jules Governance Workflow Template](./assets/jules-pr-governance.workflow.yml)
 - [Auto Merge Workflow Template](./assets/auto-merge.workflow.yml)
 - [Post Merge Workflow Template](./assets/post-merge.workflow.yml)
 - [Root Contract Template](./assets/AGENTS.template.md)
@@ -153,6 +154,12 @@ Detailed lifecycle: [Operation Flow](./references/operation-flow.md).
 
 ## Merge Lifecycle Automation
 The skill generates two complementary workflows that close the governance loop after PR validation:
+
+**jules-pr-governance.workflow.yml**
+- Triggered by pull request events only for PRs identified as Jules-originated
+- Allows the PR-first exception only for Jules while keeping the standard issue-first guardrail for everyone else
+- Requires a post-publication task issue, `Source PR`, `Closes #N`, and the normal lane/write-set/risk validation before merge
+- Keeps the Jules identity persistent through a `source:jules` PR label
 
 **auto-merge.workflow.yml**
 - Triggered by `workflow_run` on the guardrails check completing with `success`

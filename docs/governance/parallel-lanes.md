@@ -12,6 +12,13 @@ Before starting executable work:
 - check cross-lane child tasks,
 - check open PRs and pending consumption states.
 
+## Jules intake exception
+- The issue-first rule remains the default for all human, Codex, and non-Jules automation work.
+- PRs published automatically by Jules are the only supported PR-first exception.
+- After a Jules PR opens, create a task issue, record `Source PR`, and retrofit the normal lane/workspace/write-set/risk contract onto that task.
+- The Jules PR must add `Closes #<issue-number>` after intake and stay draft until governance validation passes.
+- Jules PRs do not need to follow the normal branch pattern; that exception does not apply outside the Jules flow.
+
 ## Parent and child tasks
 - Planning epic is a roadmap container only. It never replaces an executable parent task and must never be referenced in `Parent task`.
 - Executable parent task is a `kind:task` issue that coordinates cross-lane delivery and owns the integration point.

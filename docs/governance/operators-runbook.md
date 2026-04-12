@@ -25,6 +25,16 @@ Before any apply or enforcement changes, review:
 6. Complete PR only after required checks are green and required approvals are done.
 7. Confirm linked issue closure and cleanup worktree before declaring task complete.
 
+## Jules PR Intake
+Use this flow only for PRs published automatically by Jules.
+
+1. Confirm the PR is Jules-originated by its body marker or `source:jules` label.
+2. Create a task issue after the PR is open.
+3. Fill the normal task contract plus `Source PR`.
+4. Update the PR body with `Closes #<issue-number>`.
+5. Keep or convert the PR to draft until the Jules governance workflow passes.
+6. Merge only after the linked issue, write-set, lane, and risk checks pass like any other governed PR.
+
 ## Task Modeling
 - Planning epic: roadmap only, never referenced in `Parent task`.
 - Executable parent task: a `kind:task` issue that owns integration and consumes child-task delivery.

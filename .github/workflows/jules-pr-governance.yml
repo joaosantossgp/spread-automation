@@ -1,4 +1,4 @@
-﻿name: PR Issue Guardrails
+name: Jules PR Governance
 
 on:
   pull_request_target:
@@ -11,14 +11,14 @@ on:
 
 permissions:
   contents: read
-  issues: read
-  pull-requests: read
+  issues: write
+  pull-requests: write
 
 jobs:
-  validate-pr-issue-contract:
+  validate-jules-pr-governance:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate branch, issue, lane, write-set, and path policy contracts
+      - name: Validate Jules-only post-publication task intake
         uses: actions/github-script@v7
         with:
           script: |
@@ -36,23 +36,14 @@ jobs:
             ];
 
             const SECTION_ALIASES = {
-              planningEpic: ["Planning epic", "Epic parent"],
               owner: ["Current owner", "Owner atual"],
-              parentTask: ["Executable parent task", "Parent task", "Task mae"],
-              requesterLane: ["Requester lane", "Lane solicitante"],
               lane: ["Official lane", "Lane oficial"],
               workspace: ["Task workspace", "Workspace da task"],
-              childTasks: ["Child tasks", "Tasks filhas"],
+              sourcePr: ["Source PR", "PR de origem"],
               writeSet: ["Expected write-set", "Write-set esperado"],
-              consumption: ["Consumption criteria", "Criterio de consumo"],
               risk: ["Risk classification", "Classificacao de risco"],
               compatibility: ["Compatibility", "Compatibilidade"],
             };
-
-            const PARENT_ALLOWED_STATUS = [
-              "status:blocked",
-              "status:awaiting-consumption",
-            ];
 
             function normalizePath(value) {
               return (value || "")
@@ -118,13 +109,11 @@ jobs:
             }
 
             function isNotApplicable(value) {
-              return /^(n\/a|na|none|no|nenhuma|nenhum|sem child task|sem task mae)$/i.test(
-                (value || "").trim(),
-              );
+              return /^(n\/a|na|none|no|nenhuma|nenhum)$/i.test((value || "").trim());
             }
 
-            function parseIssueReference(value) {
-              const match = (value || "").match(/#(\d+)/);
+            function parsePullRequestReference(value) {
+              const match = (value || "").match(/(?:#|pull\/)(\d+)/i);
               return match ? Number(match[1]) : null;
             }
 
@@ -158,15 +147,11 @@ jobs:
               const inner = pattern.slice(openIndex + 1, closeIndex);
               const parts = inner.split(",");
 
-              return parts.flatMap((part) =>
-                expandBracePatterns(`${before}${part}${after}`),
-              );
+              return parts.flatMap((part) => expandBracePatterns(`${before}${part}${after}`));
             }
 
             function escapeRegexCharacter(character) {
-              return /[|\\{}()[\]^$+?.]/.test(character)
-                ? `\\${character}`
-                : character;
+              return /[|\\{}()[\]^$+?.]/.test(character) ? `\\${character}` : character;
             }
 
             function globToRegex(pattern) {
@@ -222,6 +207,12 @@ jobs:
               return closePattern.test(body || "");
             }
 
+            function parseLinkedIssue(body) {
+              const pattern = new RegExp(`\\b(?:${CLOSE_KEYWORDS.join("|")})\\s+#(\\d+)\\b`, "i");
+              const match = (body || "").match(pattern);
+              return match ? Number(match[1]) : null;
+            }
+
             function isJulesPr(body, labels) {
               return (
                 (labels || []).includes(JULES_LABEL) ||
@@ -229,35 +220,81 @@ jobs:
               );
             }
 
-            const branch = context.payload.pull_request.head.ref;
-            const prBody = context.payload.pull_request.body || "";
-            const prLabels = (context.payload.pull_request.labels || []).map((label) =>
+            async function ensureRepoLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({
+                  ...context.repo,
+                  name,
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  ...context.repo,
+                  name,
+                  color,
+                  description,
+                });
+              }
+            }
+
+            async function ensurePrLabel(prNumber, labels) {
+              if ((labels || []).includes(JULES_LABEL)) {
+                return;
+              }
+
+              await github.rest.issues.addLabels({
+                ...context.repo,
+                issue_number: prNumber,
+                labels: [JULES_LABEL],
+              });
+            }
+
+            async function convertToDraft(pullRequestId) {
+              if (!pullRequestId) {
+                return;
+              }
+
+              await github.graphql(
+                `
+                  mutation($pullRequestId: ID!) {
+                    convertPullRequestToDraft(input: { pullRequestId: $pullRequestId }) {
+                      pullRequest {
+                        id
+                        isDraft
+                      }
+                    }
+                  }
+                `,
+                { pullRequestId },
+              );
+            }
+
+            const pullRequest = context.payload.pull_request;
+            const prBody = pullRequest.body || "";
+            const prLabels = (pullRequest.labels || []).map((label) =>
               typeof label === "string" ? label : label.name,
             );
 
-            if (isJulesPr(prBody, prLabels)) {
-              core.info(
-                'Jules PR detected. Skipping standard issue-first branch validation and deferring to ".github/workflows/jules-pr-governance.yml".',
-              );
+            if (!isJulesPr(prBody, prLabels)) {
+              core.info("Not a Jules PR. Skipping Jules-specific governance validation.");
               return;
             }
 
-            const branchMatch = branch.match(/^([a-z][a-z0-9-]*)\/(\d+)-([a-z0-9][a-z0-9-]*)$/);
+            await ensureRepoLabel(JULES_LABEL, "1d76db", "PR published automatically by Jules");
+            await ensurePrLabel(pullRequest.number, prLabels);
 
-            if (!branchMatch) {
+            const issueNumber = parseLinkedIssue(prBody);
+            if (!issueNumber) {
+              if (!pullRequest.draft) {
+                await convertToDraft(pullRequest.node_id);
+                core.info("Converted Jules PR to draft because intake issue is still missing.");
+              }
+
               core.setFailed(
-                `Invalid branch: "${branch}". Use <lane>/<issue-number>-<slug> (example: engine-finance/27-update-mapping).`,
-              );
-              return;
-            }
-
-            const branchLane = branchMatch[1].toLowerCase();
-            const issueNumber = Number(branchMatch[2]);
-            const branchSlug = branchMatch[3];
-
-            if (!hasCloseKeyword(prBody, issueNumber)) {
-              core.setFailed(
-                `PR body must include one closure line for #${issueNumber} using: ${CLOSE_KEYWORDS.join(", ")}.`,
+                "Jules PR requires post-publication intake. Create a task issue, fill lane/workspace/write-set/risk plus Source PR, then update the PR body with Closes #<issue-number>.",
               );
               return;
             }
@@ -268,25 +305,19 @@ jobs:
             });
 
             if (issue.pull_request) {
-              core.setFailed(
-                `#${issueNumber} is a pull request. Link this PR to a task issue instead.`,
-              );
+              core.setFailed(`#${issueNumber} is a pull request. Link this Jules PR to a task issue instead.`);
               return;
             }
 
             if (issue.state !== "open") {
-              core.setFailed(`Issue #${issueNumber} must remain open while the PR is under review.`);
+              core.setFailed(`Issue #${issueNumber} must remain open while the Jules PR is under review.`);
               return;
             }
 
-            const labels = issue.labels.map((label) =>
-              typeof label === "string" ? label : label.name,
-            );
+            const labels = issue.labels.map((label) => (typeof label === "string" ? label : label.name));
 
             if (!labels.includes("kind:task")) {
-              core.setFailed(
-                `Issue #${issueNumber} must include "kind:task". Epics should not be closed by PR automation.`,
-              );
+              core.setFailed(`Issue #${issueNumber} must include "kind:task".`);
               return;
             }
 
@@ -297,37 +328,25 @@ jobs:
             if (!requireExactlyOnePrefix(labels, "lane:", "lane:*")) return;
 
             const owner = extractSectionByAliases(issue.body || "", SECTION_ALIASES.owner);
-            const planningEpicSection = extractSectionByAliases(
-              issue.body || "",
-              SECTION_ALIASES.planningEpic,
-            );
-            const parentTaskSection = extractSectionByAliases(
-              issue.body || "",
-              SECTION_ALIASES.parentTask,
-            );
-            const requesterLane = extractSectionByAliases(
-              issue.body || "",
-              SECTION_ALIASES.requesterLane,
-            )
-              .toLowerCase()
-              .trim();
             const laneSection = extractSectionByAliases(issue.body || "", SECTION_ALIASES.lane)
               .toLowerCase()
               .trim();
             const workspace = normalizePath(
               extractSectionByAliases(issue.body || "", SECTION_ALIASES.workspace),
             );
+            const sourcePrSection = extractSectionByAliases(issue.body || "", SECTION_ALIASES.sourcePr);
             const writeSet = extractSectionByAliases(issue.body || "", SECTION_ALIASES.writeSet);
-            const consumptionCriteria = extractSectionByAliases(
-              issue.body || "",
-              SECTION_ALIASES.consumption,
-            );
             const risk = extractSectionByAliases(issue.body || "", SECTION_ALIASES.risk)
               .toLowerCase()
               .trim();
 
             if (!owner || /^tbd$/i.test(owner)) {
               core.setFailed(`Issue #${issueNumber} must declare a concrete current owner.`);
+              return;
+            }
+
+            if (!workspace || /^tbd/i.test(workspace)) {
+              core.setFailed(`Issue #${issueNumber} must declare a concrete task workspace path.`);
               return;
             }
 
@@ -355,13 +374,6 @@ jobs:
             const laneLabel = labels.find((label) => label.startsWith("lane:"));
             const laneFromLabel = laneLabel.replace(/^lane:/, "").trim().toLowerCase();
 
-            if (branchLane !== laneFromLabel) {
-              core.setFailed(
-                `Issue #${issueNumber} lane label "${laneFromLabel}" must match branch lane "${branchLane}".`,
-              );
-              return;
-            }
-
             if (laneSection && !isNotApplicable(laneSection) && laneSection !== laneFromLabel) {
               core.setFailed(
                 `Issue #${issueNumber} lane section "${laneSection}" does not match lane label "${laneFromLabel}".`,
@@ -369,126 +381,16 @@ jobs:
               return;
             }
 
-            if (!workspace || /^tbd/i.test(workspace)) {
-              core.setFailed(`Issue #${issueNumber} must declare a concrete task workspace path.`);
-              return;
-            }
-
-            const hasParentTask = parentTaskSection && !isNotApplicable(parentTaskSection);
-            const hasPlanningEpic = planningEpicSection && !isNotApplicable(planningEpicSection);
-            const requesterLaneProvided = requesterLane && !isNotApplicable(requesterLane);
-            const consumptionCriteriaProvided =
-              consumptionCriteria && !isNotApplicable(consumptionCriteria);
-
-            if (!hasParentTask && (requesterLaneProvided || consumptionCriteriaProvided)) {
+            const sourcePrNumber = parsePullRequestReference(sourcePrSection);
+            if (!sourcePrNumber || sourcePrNumber !== pullRequest.number) {
               core.setFailed(
-                `Issue #${issueNumber} can only set requester lane and consumption criteria when executable parent task is declared.`,
+                `Issue #${issueNumber} must record Source PR as #${pullRequest.number}. Current: "${sourcePrSection || "missing"}".`,
               );
               return;
-            }
-
-            if (hasParentTask) {
-              const parentTaskNumber = parseIssueReference(parentTaskSection);
-              if (!parentTaskNumber) {
-                core.setFailed(
-                  `Issue #${issueNumber} executable parent task must reference a valid issue number (example: #40).`,
-                );
-                return;
-              }
-
-              if (!requesterLaneProvided) {
-                core.setFailed(`Issue #${issueNumber} must declare requester lane for child tasks.`);
-                return;
-              }
-
-              if (requesterLane === laneFromLabel) {
-                core.setFailed(
-                  `Issue #${issueNumber} cannot use an executable parent task inside the same lane "${laneFromLabel}". Keep it standalone and, if needed, link it only through Planning epic.`,
-                );
-                return;
-              }
-
-              if (!consumptionCriteriaProvided) {
-                core.setFailed(`Issue #${issueNumber} must declare consumption criteria for child tasks.`);
-                return;
-              }
-
-              const { data: parentIssue } = await github.rest.issues.get({
-                ...context.repo,
-                issue_number: parentTaskNumber,
-              });
-
-              if (parentIssue.pull_request) {
-                core.setFailed(`Parent issue #${parentTaskNumber} cannot be a pull request.`);
-                return;
-              }
-
-              if (parentIssue.state !== "open") {
-                core.setFailed(
-                  `Parent issue #${parentTaskNumber} must remain open while child task #${issueNumber} exists.`,
-                );
-                return;
-              }
-
-              const parentLabels = parentIssue.labels.map((label) =>
-                typeof label === "string" ? label : label.name,
-              );
-
-              if (!parentLabels.includes("kind:task")) {
-                const epicHint = hasPlanningEpic
-                  ? `Planning epic is already declared in issue #${issueNumber}; keep epic links there and point executable parent task to a kind:task integration issue.`
-                  : `Use Planning epic for roadmap links and executable parent task only for a kind:task integration issue.`;
-                core.setFailed(
-                  `Parent issue #${parentTaskNumber} must include label "kind:task". ${epicHint}`,
-                );
-                return;
-              }
-
-              if (!requireExactlyOnePrefix(parentLabels, "lane:", "lane:* on parent issue")) {
-                return;
-              }
-
-              const parentLane = extractSectionByAliases(
-                parentIssue.body || "",
-                SECTION_ALIASES.lane,
-              )
-                .toLowerCase()
-                .trim();
-
-              if (parentLane !== requesterLane) {
-                core.setFailed(
-                  `Child issue #${issueNumber} requester lane "${requesterLane}" must match parent issue #${parentTaskNumber} lane "${parentLane}".`,
-                );
-                return;
-              }
-
-              const parentChildrenSection = extractSectionByAliases(
-                parentIssue.body || "",
-                SECTION_ALIASES.childTasks,
-              );
-
-              if (
-                !parentChildrenSection ||
-                isNotApplicable(parentChildrenSection) ||
-                !new RegExp(`(^|\\s|-)#${issueNumber}(\\b|\\s|$)`, "i").test(parentChildrenSection)
-              ) {
-                core.setFailed(
-                  `Parent issue #${parentTaskNumber} must list child task #${issueNumber} in child tasks section.`,
-                );
-                return;
-              }
-
-              const parentStatusLabels = parentLabels.filter((label) => label.startsWith("status:"));
-              if (!parentStatusLabels.some((status) => PARENT_ALLOWED_STATUS.includes(status))) {
-                core.setFailed(
-                  `Parent issue #${parentTaskNumber} must remain in one of: ${PARENT_ALLOWED_STATUS.join(", ")}.`,
-                );
-                return;
-              }
             }
 
             const expectedWorkspaceFragment = normalizePath(
-              `.claude/worktrees/${branchLane}/${issueNumber}-${branchSlug}`,
+              `.claude/worktrees/${laneFromLabel}/${issueNumber}-`,
             );
             if (!workspace.includes(expectedWorkspaceFragment)) {
               core.setFailed(
@@ -503,17 +405,12 @@ jobs:
               per_page: 100,
             });
 
-            const conflictingPrs = duplicatePrs.filter((pullRequest) => {
-              if (pullRequest.number === context.payload.pull_request.number) {
+            const conflictingPrs = duplicatePrs.filter((otherPr) => {
+              if (otherPr.number === pullRequest.number) {
                 return false;
               }
 
-              const sameIssue = hasCloseKeyword(pullRequest.body || "", issueNumber);
-              const sameBranchIssue =
-                typeof pullRequest.head?.ref === "string" &&
-                new RegExp(`^[a-z][a-z0-9-]*/${issueNumber}-`).test(pullRequest.head.ref);
-
-              return sameIssue || sameBranchIssue;
+              return hasCloseKeyword(otherPr.body || "", issueNumber);
             });
 
             if (conflictingPrs.length > 0) {
@@ -525,12 +422,10 @@ jobs:
               return;
             }
 
-            // Read path-policy from the PR HEAD so bootstrap PRs that update
-            // the policy are validated against their own declared rules.
             const { data: policyFile } = await github.rest.repos.getContent({
               ...context.repo,
               path: ".github/guardrails/path-policy.json",
-              ref: context.payload.pull_request.head.sha,
+              ref: pullRequest.head.sha,
             });
 
             const policy = JSON.parse(
@@ -539,22 +434,20 @@ jobs:
 
             const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
               ...context.repo,
-              pull_number: context.payload.pull_request.number,
+              pull_number: pullRequest.number,
               per_page: 100,
             });
 
             const filenames = changedFiles.map((file) => normalizePath(file.filename)).filter(Boolean);
 
             if (filenames.length === 0) {
-              core.setFailed(`PR #${context.payload.pull_request.number} has no changed files.`);
+              core.setFailed(`PR #${pullRequest.number} has no changed files.`);
               return;
             }
 
             const writePatterns = parseListSection(writeSet);
             if (writePatterns.length === 0) {
-              core.setFailed(
-                `Issue #${issueNumber} expected write-set must contain at least one item.`,
-              );
+              core.setFailed(`Issue #${issueNumber} expected write-set must contain at least one item.`);
               return;
             }
 
@@ -577,21 +470,21 @@ jobs:
               );
 
               if (matchedGroups.length > 1) {
-                // Multiple groups matched — apply most-restrictive-wins:
-                // intersect allowedLanes, take highest minimumRisk, OR draft/compatibility.
                 core.info(
                   `File "${file}" matched multiple critical groups: ${matchedGroups.map((g) => g.name).join(", ")}. Applying most-restrictive-wins.`,
                 );
                 const intersectedLanes = matchedGroups.reduce(
-                  (lanes, group) => lanes.filter((l) => group.allowedLanes.includes(l)),
+                  (allowed, group) => allowed.filter((lane) => group.allowedLanes.includes(lane)),
                   matchedGroups[0].allowedLanes.slice(),
                 );
+
                 if (!intersectedLanes.includes(laneFromLabel)) {
                   core.setFailed(
-                    `Lane "${laneFromLabel}" cannot change "${file}". Effective allowed lanes (intersection of all matched groups): ${intersectedLanes.join(", ")}.`,
+                    `Lane "${laneFromLabel}" cannot change "${file}". Effective allowed lanes: ${intersectedLanes.join(", ")}.`,
                   );
                   return;
                 }
+
                 for (const group of matchedGroups) {
                   minimumRequiredRisk = highestRisk(minimumRequiredRisk, group.minimumRisk);
                   requiresDraft = requiresDraft || !!group.requireDraft;
@@ -647,6 +540,11 @@ jobs:
               const rightTouched = filenames.some((file) => matchesAnyPattern(file, mix.right));
 
               if (leftTouched && rightTouched) {
+                const exemptLanes = mix.exemptLanes || mix.exempt_lanes || [];
+                if (exemptLanes.includes(laneFromLabel)) {
+                  continue;
+                }
+
                 core.setFailed(
                   `PR violates disallowed domain mix "${mix.name}". Split work into lane-specific tasks/PRs.`,
                 );
@@ -657,17 +555,14 @@ jobs:
             if (
               ["opened", "reopened"].includes(context.payload.action) &&
               requiresDraft &&
-              !context.payload.pull_request.draft
+              !pullRequest.draft
             ) {
-              core.setFailed(`PR touching critical/shared paths must open as draft.`);
+              core.setFailed(`Jules PR touching critical/shared paths must open as draft.`);
               return;
             }
 
             if (requiresCompatibility) {
-              const compatibility = extractSectionByAliases(
-                prBody,
-                SECTION_ALIASES.compatibility,
-              );
+              const compatibility = extractSectionByAliases(prBody, SECTION_ALIASES.compatibility);
               const hasPolicy =
                 compatibility.includes("additive-only") ||
                 compatibility.includes("breaking-approved");
@@ -680,4 +575,4 @@ jobs:
               }
             }
 
-            core.info("PR and issue contracts validated successfully.");
+            core.info("Jules PR governance intake validated successfully.");
