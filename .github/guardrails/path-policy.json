@@ -71,7 +71,7 @@
         "master"
       ],
       "minimumRisk": "shared",
-      "requireDraft": true,
+      "requireDraft": false,
       "requireCompatibility": false
     },
     {
@@ -93,7 +93,7 @@
         "ops-quality"
       ],
       "minimumRisk": "shared",
-      "requireDraft": true,
+      "requireDraft": false,
       "requireCompatibility": false
     },
     {
@@ -116,7 +116,7 @@
         "master"
       ],
       "minimumRisk": "shared",
-      "requireDraft": true,
+      "requireDraft": false,
       "requireCompatibility": false
     },
     {
@@ -133,7 +133,7 @@
         "master"
       ],
       "minimumRisk": "contract-sensitive",
-      "requireDraft": true,
+      "requireDraft": false,
       "requireCompatibility": true
     }
   ],

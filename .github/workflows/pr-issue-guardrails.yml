@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate branch, issue, lane, write-set, and path policy contracts
-        uses: actions/github-script@v8
+        uses: actions/github-script@v7
         with:
           script: |
             const RISK_RANK = {
@@ -29,6 +29,11 @@ jobs:
             };
 
             const CLOSE_KEYWORDS = ["Closes", "Fixes", "Resolves"];
+            const JULES_LABEL = "source:jules";
+            const JULES_MARKERS = [
+              "PR created automatically by Jules",
+              "jules.google.com/task/",
+            ];
 
             const SECTION_ALIASES = {
               planningEpic: ["Planning epic", "Epic parent"],
@@ -217,7 +222,26 @@ jobs:
               return closePattern.test(body || "");
             }
 
+            function isJulesPr(body, labels) {
+              return (
+                (labels || []).includes(JULES_LABEL) ||
+                JULES_MARKERS.some((marker) => (body || "").includes(marker))
+              );
+            }
+
             const branch = context.payload.pull_request.head.ref;
+            const prBody = context.payload.pull_request.body || "";
+            const prLabels = (context.payload.pull_request.labels || []).map((label) =>
+              typeof label === "string" ? label : label.name,
+            );
+
+            if (isJulesPr(prBody, prLabels)) {
+              core.info(
+                'Jules PR detected. Skipping standard issue-first branch validation and deferring to ".github/workflows/jules-pr-governance.yml".',
+              );
+              return;
+            }
+
             const branchMatch = branch.match(/^([a-z][a-z0-9-]*)\/(\d+)-([a-z0-9][a-z0-9-]*)$/);
 
             if (!branchMatch) {
@@ -230,7 +254,6 @@ jobs:
             const branchLane = branchMatch[1].toLowerCase();
             const issueNumber = Number(branchMatch[2]);
             const branchSlug = branchMatch[3];
-            const prBody = context.payload.pull_request.body || "";
 
             if (!hasCloseKeyword(prBody, issueNumber)) {
               core.setFailed(

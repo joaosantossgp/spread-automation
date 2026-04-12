@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Find open PR for this workflow run
         id: find-pr
-        uses: actions/github-script@v8
+        uses: actions/github-script@v7
         with:
           script: |
             const headBranch = context.payload.workflow_run.head_branch;
@@ -62,7 +62,7 @@ jobs:
         if: steps.find-pr.outputs.found == 'true' && steps.find-pr.outputs.is_draft == 'false'
         env:
           PR_NUMBER: ${{ steps.find-pr.outputs.pr_number }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v7
         with:
           script: |
             const prNumber = Number(process.env.PR_NUMBER);
