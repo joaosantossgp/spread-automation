@@ -2,7 +2,7 @@ from pathlib import Path
 from decimal import Decimal, InvalidOperation
 import pandas as pd
 
-from .base import IngestionAdapter
+from .base import IngestionAdapter, IngestionConfig
 from core.models import FinancialDataSet, FinancialAccount, EntityType, SourceType
 
 
@@ -12,20 +12,11 @@ class CVMExcelAdapter(IngestionAdapter):
     files into a canonical FinancialDataSet.
     """
 
-    def load(
-        self,
-        path: str | Path,
-        company: str,
-        period: str,
-        entity_type: EntityType,
-        cnpj: str | None = None,
-        previous_period: str | None = None,
-        previous_previous_period: str | None = None,
-    ) -> FinancialDataSet:
-        path = Path(path)
-        is_trim = "T" in period.upper()
+    def load(self, config: IngestionConfig) -> FinancialDataSet:
+        path = Path(config.path)
+        is_trim = "T" in config.period.upper()
         
-        chapa = "Cons" if entity_type == EntityType.CONSOLIDATED else "Ind"
+        chapa = "Cons" if config.entity_type == EntityType.CONSOLIDATED else "Ind"
         aba_dm = f"DF {chapa} DMPL {'Atual' if is_trim else 'Ultimo'}"
         
         sheet_map = {
@@ -66,7 +57,7 @@ class CVMExcelAdapter(IngestionAdapter):
                                 code=codigo,
                                 description=descricao,
                                 value=_coerce_decimal(val),
-                                period=period,
+                                period=config.period,
                                 section=section,
                                 source=SourceType.CVM_EXCEL
                             ))
@@ -94,38 +85,38 @@ class CVMExcelAdapter(IngestionAdapter):
                             code=codigo,
                             description=descricao,
                             value=_coerce_decimal(val_atual),
-                            period=period,
+                            period=config.period,
                             section=section,
                             source=SourceType.CVM_EXCEL
                         ))
                     
                     # Add previous period account
-                    if val_ant is not None and pd.notna(val_ant) and previous_period:
+                    if val_ant is not None and pd.notna(val_ant) and config.previous_period:
                         accounts.append(FinancialAccount(
                             code=codigo,
                             description=descricao,
                             value=_coerce_decimal(val_ant),
-                            period=previous_period,
+                            period=config.previous_period,
                             section=section,
                             source=SourceType.CVM_EXCEL
                         ))
                         
                     # Add previous-previous period account if DFP
-                    if not is_trim and val_ant2 is not None and pd.notna(val_ant2) and previous_previous_period:
+                    if not is_trim and val_ant2 is not None and pd.notna(val_ant2) and config.previous_previous_period:
                         accounts.append(FinancialAccount(
                             code=codigo,
                             description=descricao,
                             value=_coerce_decimal(val_ant2),
-                            period=previous_previous_period,
+                            period=config.previous_previous_period,
                             section=section,
                             source=SourceType.CVM_EXCEL
                         ))
 
         return FinancialDataSet(
-            company=company,
-            cnpj=cnpj,
-            period=period,
-            entity_type=entity_type,
+            company=config.company,
+            cnpj=config.cnpj,
+            period=config.period,
+            entity_type=config.entity_type,
             source_type=SourceType.CVM_EXCEL,
             accounts=accounts
         )
