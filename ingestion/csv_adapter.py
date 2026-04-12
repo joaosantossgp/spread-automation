@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 from decimal import Decimal
 
-from .base import IngestionAdapter
+from .base import IngestionAdapter, IngestionConfig
 from core.models import FinancialDataSet, FinancialAccount, EntityType, SourceType
 
 
@@ -11,25 +11,16 @@ class CVMCSVAdapter(IngestionAdapter):
     Adapter to parse Data provided by CVM in open data standard (CSV format).
     """
 
-    def load(
-        self,
-        path: str | Path,
-        company: str,
-        period: str,
-        entity_type: EntityType,
-        cnpj: str | None = None,
-        section: str | None = None,
-    ) -> FinancialDataSet:
-        path = Path(path)
+    def load(self, config: IngestionConfig) -> FinancialDataSet:
+        path = Path(config.path)
         
-        import pandas as pd
         df = pd.read_csv(path, sep=";", encoding="utf-8")
         
         # Apply filters
-        if cnpj:
-            df = df[df["CNPJ_CIA"] == cnpj]
+        if config.cnpj:
+            df = df[df["CNPJ_CIA"] == config.cnpj]
         else:
-            df = df[df["DENOM_CIA"].str.contains(company, case=False, na=False)]
+            df = df[df["DENOM_CIA"].str.contains(config.company, case=False, na=False)]
             
         accounts = []
         for _, row in df.iterrows():
@@ -45,17 +36,17 @@ class CVMCSVAdapter(IngestionAdapter):
                     code=codigo,
                     description=descricao,
                     value=Decimal(str(valor)),
-                    period=period,  # Needs proper mapping dynamically based on CSV DT_REFER/ORDEM
-                    section=section or "UNKNOWN", 
+                    period=config.period,  # Needs proper mapping dynamically based on CSV DT_REFER/ORDEM
+                    section=config.section or "UNKNOWN",
                     source=SourceType.CVM_CSV
                 )
             )
 
         return FinancialDataSet(
-            company=company,
-            cnpj=cnpj,
-            period=period,
-            entity_type=entity_type,
+            company=config.company,
+            cnpj=config.cnpj,
+            period=config.period,
+            entity_type=config.entity_type,
             source_type=SourceType.CVM_CSV,
             accounts=accounts
         )

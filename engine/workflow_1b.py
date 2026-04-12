@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Sequence, Any
 
 from core.models import EntityType, SourceType, FinancialDataSet
-from ingestion import CVMExcelAdapter, CVMCSVAdapter
+from ingestion import CVMExcelAdapter, CVMCSVAdapter, IngestionConfig
 from mapping import MappingRegistry, Mapper
 from spread import SpreadReader, SpreadWriter, Highlights, TemplateManager
 from validation import ValidationReporter
@@ -84,10 +84,12 @@ class Mode1BWorkflow:
                 adapter = CVMCSVAdapter()
                 
             current_dataset = adapter.load(
-                path=source_path,
-                company=company,
-                period=period,
-                entity_type=entity_type
+                IngestionConfig(
+                    path=source_path,
+                    company=company,
+                    period=period,
+                    entity_type=entity_type
+                )
             )
             
             # For iteration 0, we can't use Layer 2 because we have no previous Spread column 

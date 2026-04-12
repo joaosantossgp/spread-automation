@@ -6,7 +6,7 @@ from pathlib import Path
 
 from core.schema import SpreadSchema
 from core.models import EntityType
-from ingestion import CVMExcelAdapter
+from ingestion import CVMExcelAdapter, IngestionConfig
 from mapping import MappingRegistry, Mapper
 from spread import SpreadReader, SpreadWriter, Highlights
 from validation import ValidationReporter
@@ -69,11 +69,13 @@ class Mode1AWorkflow:
         # 1. Ingest Data
         adapter = CVMExcelAdapter()
         dataset = adapter.load(
-            path=source_path,
-            company=company,
-            period=period,
-            entity_type=entity_type,
-            # We don't strictly need prior periods here because target spread already has the heuristic columns
+            IngestionConfig(
+                path=source_path,
+                company=company,
+                period=period,
+                entity_type=entity_type,
+                # We don't strictly need prior periods here because target spread already has the heuristic columns
+            )
         )
 
         # 2. Extract Spread Schema

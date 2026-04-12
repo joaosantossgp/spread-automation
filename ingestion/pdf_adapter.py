@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from core.models import EntityType, SourceType, FinancialDataSet
-from ingestion.base import IngestionAdapter
+from ingestion.base import IngestionAdapter, IngestionConfig
 from .pdf.extractor import MarkdownExtractor
 from .pdf.parser import MarkdownParser
 
@@ -13,25 +13,18 @@ class PDFAdapter(IngestionAdapter):
     Adapter to parse PDF Document representations into FinancialDataSet.
     """
 
-    def load(
-        self,
-        path: str | Path,
-        company: str,
-        period: str,
-        entity_type: EntityType = EntityType.CONSOLIDATED,
-        cnpj: str | None = None,
-    ) -> FinancialDataSet:
+    def load(self, config: IngestionConfig) -> FinancialDataSet:
         extractor = MarkdownExtractor()
-        raw_md = extractor.extract(path)
+        raw_md = extractor.extract(config.path)
 
         parser = MarkdownParser()
-        accounts = list(parser.parse(raw_md, period=period))
+        accounts = list(parser.parse(raw_md, period=config.period))
 
         return FinancialDataSet(
-            company=company,
-            cnpj=cnpj,
-            period=period,
-            entity_type=entity_type,
+            company=config.company,
+            cnpj=config.cnpj,
+            period=config.period,
+            entity_type=config.entity_type,
             source_type=SourceType.PDF,
             accounts=accounts
         )
