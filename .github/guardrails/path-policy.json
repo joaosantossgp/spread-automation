@@ -23,6 +23,7 @@
       "docs/**",
       "scripts/**",
       "assets/**",
+      "tests/**",
       "*.md",
       "LICENSE",
       ".gitignore"
