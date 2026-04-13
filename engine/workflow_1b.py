@@ -1,4 +1,12 @@
-"""Workflow for Mode 1B (Multi-period initialization from scratch)."""
+"""Workflow for Mode 1B (Multi-period initialization from scratch).
+
+NOTE (Option B — template not yet available):
+    Mode 1B requires a blank Spread Proxy Template (.xlsx) that is not currently
+    committed to this repository. Until that asset ships, any attempt to construct
+    this workflow via `from_default()` will raise `TemplateNotAvailableError` with
+    the expected file path. The workflow itself is otherwise fully implemented and
+    will operate correctly once the template is provided.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +14,7 @@ from pathlib import Path
 from decimal import Decimal
 from typing import Sequence, Any
 
+from core.exceptions import TemplateNotAvailableError
 from core.models import EntityType, SourceType, FinancialDataSet
 from ingestion import CVMExcelAdapter, CVMCSVAdapter, IngestionConfig
 from mapping import MappingRegistry, Mapper
@@ -13,23 +22,43 @@ from spread import SpreadReader, SpreadWriter, Highlights, TemplateManager
 from validation import ValidationReporter
 from validation.coverage import CoverageValidator
 
+# Default template location — relative to the repository root.
+_DEFAULT_TEMPLATE = Path(__file__).parent.parent / "templates" / "Spread Proxy Template.xlsx"
+
 
 class Mode1BWorkflow:
     """
-    Orchestrates building a new multi-period Proxy Spread entirely from scratch 
+    Orchestrates building a new multi-period Proxy Spread entirely from scratch
     based on a blank template and an array of datasets.
+
+    Use `Mode1BWorkflow.from_default()` to construct with the canonical template
+    path. This will raise `TemplateNotAvailableError` (a subclass of
+    `FileNotFoundError`) if the template has not yet been added to the repository.
     """
 
     def __init__(
         self,
         template_manager: TemplateManager,
-        registry_dir: Path | None = None
+        registry_dir: Path | None = None,
     ):
         self.template_manager = template_manager
         self.registry = MappingRegistry.load(registry_dir)
         self.mapper = Mapper(self.registry)
         self.reporter = ValidationReporter()
         self.coverage_validator = CoverageValidator()
+
+    @classmethod
+    def from_default(cls, registry_dir: Path | None = None) -> "Mode1BWorkflow":
+        """
+        Construct Mode1BWorkflow using the canonical blank template.
+
+        Raises:
+            TemplateNotAvailableError: if the template file does not exist at
+                `templates/Spread Proxy Template.xlsx` (relative to the repo root).
+        """
+        # TemplateManager.__init__ already raises TemplateNotAvailableError if missing.
+        template_manager = TemplateManager(_DEFAULT_TEMPLATE)
+        return cls(template_manager=template_manager, registry_dir=registry_dir)
 
     def execute(
         self,
