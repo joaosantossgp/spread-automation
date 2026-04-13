@@ -15,6 +15,10 @@ from processing.pipeline import processar, processar_multi, detectar_colunas
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
+
+        # Teardown guard — set by _on_close before destroy() is called.
+        self._destroyed = False
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.title("Atualizador de Spread")
         self.grid_columnconfigure((0, 1), weight=1)
 
@@ -64,6 +68,25 @@ class App(ctk.CTk):
         self.log_box.grid(row=11, column=0, columnspan=2, pady=(5, 10), padx=4)
         logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
+    def _on_close(self) -> None:
+        """Cancel pending after-callbacks before destroying the window."""
+        self._destroyed = True
+        for after_id in self.tk.eval("after info").split():
+            try:
+                self.after_cancel(after_id)
+            except Exception:
+                pass
+        self.destroy()
+
+    def _widget_alive(self) -> bool:
+        """Return True only if the widget tree still exists."""
+        try:
+            if getattr(self, "_destroyed", False):
+                return False
+            return bool(self.winfo_exists())
+        except Exception:
+            return False
+
     def _campo_arquivo(self, rotulo, linha, var):
         ctk.CTkLabel(self, text=rotulo).grid(row=linha, column=0, sticky="w", padx=4)
         ctk.CTkEntry(self, textvariable=var, width=420).grid(row=linha, column=1, sticky="ew", padx=4)
@@ -80,6 +103,8 @@ class App(ctk.CTk):
         ctk.CTkEntry(self, textvariable=var, width=width).grid(row=linha, column=1, sticky="w", padx=4)
 
     def _log(self, msg):
+        if not self._widget_alive():
+            return
         self.log_box.configure(state="normal")
         self.log_box.insert("end", msg + "\n")
         self.log_box.configure(state="disabled")

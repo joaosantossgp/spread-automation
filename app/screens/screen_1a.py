@@ -174,9 +174,28 @@ class Screen1A(ctk.CTkFrame):
         )
         self.log_box.pack(fill="both", expand=True, padx=1, pady=(0, 1))
 
+    # ── Teardown guard ───────────────────────────────────────────────────
+
+    def _widget_alive(self) -> bool:
+        """Return True only if the widget tree still exists.
+
+        Daemon threads must call this before touching any Tk widget.  The root
+        window sets ``_destroyed = True`` before calling destroy(), which lets
+        threads bail out before Tk raises "invalid command name" errors.
+        """
+        try:
+            root = self.winfo_toplevel()
+            if getattr(root, "_destroyed", False):
+                return False
+            return bool(self.winfo_exists())
+        except Exception:
+            return False
+
     # ── Log helper ───────────────────────────────────────────────────────
 
     def _log(self, text: str):
+        if not self._widget_alive():
+            return
         self.log_box.insert("end", text + "\n")
         self.log_box.see("end")
 
@@ -228,6 +247,9 @@ class Screen1A(ctk.CTkFrame):
                 entity_type=entity_enum,
             )
 
+            if not self._widget_alive():
+                return
+
             self.progress.update("Done", 1.0)
             self._log("[+] Workflow completed successfully.")
 
@@ -236,7 +258,9 @@ class Screen1A(ctk.CTkFrame):
             self._log(f"    Valid   : {val.get('is_valid')}  |  Missing: {len(val.get('missing', []))}")
 
         except Exception:
-            self.progress.update("Failed", 0.0)
-            self._log(f"[-] Workflow failed:\n{traceback.format_exc()}")
+            if self._widget_alive():
+                self.progress.update("Failed", 0.0)
+                self._log(f"[-] Workflow failed:\n{traceback.format_exc()}")
         finally:
-            self.run_btn.configure(state="normal")
+            if self._widget_alive():
+                self.run_btn.configure(state="normal")
