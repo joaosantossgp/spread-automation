@@ -209,7 +209,7 @@ special_pr_flows:
         - "jules.google.com/task/"
       persistent_pr_label: "source:jules"
     intake_mode: "pr-first-exception"
-    task_creation_timing: "automatic_after_pr_open"
+    task_creation_timing: "after_pr_open"
     branch_pattern_exempt: true
     required_issue_fields:
       - "Current owner"
@@ -219,10 +219,10 @@ special_pr_flows:
       - "Risk classification"
       - "Source PR"
     required_follow_up:
-      - "workflow creates the task issue after PR publication when one is missing"
-      - "workflow syncs required labels and issue metadata from path-policy"
-      - "workflow updates PR body with Closes #<issue-number>"
-      - "configure JULES_GOVERNANCE_TOKEN for fully automatic draft conversion on shared or critical paths"
+      - "create task issue after PR publication"
+      - "set required labels and issue metadata"
+      - "update PR body with Closes #<issue-number>"
+      - "keep PR draft until governance intake passes"
 
 worktree:
   root: ".claude/worktrees"

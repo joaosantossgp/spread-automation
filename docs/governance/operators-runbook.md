@@ -29,10 +29,10 @@ Before any apply or enforcement changes, review:
 Use this flow only for PRs published automatically by Jules.
 
 1. Confirm the PR is Jules-originated by its body marker or `source:jules` label.
-2. Let `.github/workflows/jules-pr-governance.yml` create the task issue automatically when one is missing.
-3. Confirm the workflow synchronized `Source PR`, lane, workspace, write-set, and risk on the created issue.
-4. Confirm the workflow updated the PR body with `Closes #<issue-number>`.
-5. If the PR touches shared or critical paths, set repository secret `JULES_GOVERNANCE_TOKEN` so the workflow can convert it to draft automatically. Without that secret, the workflow fails explicitly and an operator must convert the PR to draft manually.
+2. Create a task issue after the PR is open.
+3. Fill the normal task contract plus `Source PR`.
+4. Update the PR body with `Closes #<issue-number>`.
+5. Keep or convert the PR to draft until the Jules governance workflow passes.
 6. Merge only after the linked issue, write-set, lane, and risk checks pass like any other governed PR.
 
 ## Task Modeling
