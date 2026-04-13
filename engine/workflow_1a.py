@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from core.schema import SpreadSchema
-from core.models import EntityType
+from core.models import EntityType, FinancialDataSet
 from ingestion import CVMExcelAdapter, IngestionConfig
 from mapping import MappingRegistry, Mapper
 from spread import SpreadReader, SpreadWriter, Highlights
@@ -46,27 +46,36 @@ class Mode1AWorkflow:
         spread_path: str | Path,
         company: str,
         period: str,
-        dest_col: str,
+        dest_col: str | None = None,
         prior_col: str | None = None,
-        entity_type: EntityType = EntityType.CONSOLIDATED
-    ) -> dict:
+        entity_type: EntityType = EntityType.CONSOLIDATED,
+        multi_period: bool = False,
+    ) -> dict | list[dict]:
         """
         Executes Mode 1A:
-        1. Ingest CVM data (assume Excel CVM template for 1A right now).
-        2. Read Spread Proxy schema (with fallback prior values).
-        3. Match accounts using core mapper.
-        4. Overwrite targets in Spread Proxy.
-        5. Apply conditional formatting highlights.
-        6. Run validation checks.
+        If missing, slot detection determines the target columns automatically.
+        If multi_period is True, it processes the prior period first and then the current,
+        re-reading the target Spread schema in sequence.
         """
-        source_path = Path(source_path)
-        spread_path = Path(spread_path)
-        spread_schema = SpreadSchema.load()
-        schema_end_row = max(
-            section.end_row for section in spread_schema.sections.values()
-        )
+        if dest_col is None or prior_col is None:
+            slot = self.detect_target_slot(spread_path, period)
+            if not slot.has_available_slot:
+                raise ValueError(f"No available slot detected in the spread grid. {slot.message}")
+            dest_col = dest_col or slot.destination_column
+            prior_col = prior_col or slot.source_column
 
-        # 1. Ingest Data
+        if multi_period:
+            return self._execute_multi(
+                source_path=source_path,
+                spread_path=spread_path,
+                company=company,
+                period=period,
+                start_prior_col=prior_col,
+                start_dest_col=dest_col,
+                entity_type=entity_type,
+            )
+
+        # Single period path
         adapter = CVMExcelAdapter()
         dataset = adapter.load(
             IngestionConfig(
@@ -74,8 +83,93 @@ class Mode1AWorkflow:
                 company=company,
                 period=period,
                 entity_type=entity_type,
-                # We don't strictly need prior periods here because target spread already has the heuristic columns
             )
+        )
+        return self._execute_single_run(
+            spread_path=spread_path,
+            dataset=dataset,
+            dest_col=dest_col,
+            prior_col=prior_col,
+        )
+
+    def _execute_multi(
+        self,
+        source_path: str | Path,
+        spread_path: str | Path,
+        company: str,
+        period: str,
+        start_prior_col: str,
+        start_dest_col: str,
+        entity_type: EntityType,
+    ) -> list[dict]:
+        from core.utils import periodos
+        from processing.runtime_bridge import next_data_column
+
+        # Identify the periods
+        atual, ant, ant2, is_trim = periodos(period)
+        
+        # 1. Ingest Data once, retrieving both the prior period and the current period
+        source_path = Path(source_path)
+        adapter = CVMExcelAdapter()
+        dataset = adapter.load(
+            IngestionConfig(
+                path=source_path,
+                company=company,
+                period=atual,
+                previous_period=ant,
+                entity_type=entity_type,
+            )
+        )
+        
+        # Determine the two periods to process. We sequence the prior (ant) first, then current (atual)
+        periodos_lista = [ant, atual]
+        
+        results = []
+        current_prior_col = start_prior_col
+        current_dest_col = start_dest_col
+        
+        for per in periodos_lista:
+            # Filter dataset for the specific period's accounts
+            period_accounts = [acc for acc in dataset.accounts if acc.period == per]
+            if not period_accounts:
+                raise ValueError(f"No accounts found for period {per} in source dataset.")
+                
+            filtered_dataset = FinancialDataSet(
+                company=dataset.company,
+                cnpj=dataset.cnpj,
+                period=per,
+                entity_type=dataset.entity_type,
+                source_type=dataset.source_type,
+                accounts=period_accounts
+            )
+            
+            res = self._execute_single_run(
+                spread_path=spread_path,
+                dataset=filtered_dataset,
+                dest_col=current_dest_col,
+                prior_col=current_prior_col
+            )
+            res["period"] = per
+            results.append(res)
+            
+            # For the next run, the newly written column becomes the prior column
+            current_prior_col = current_dest_col
+            _, _, _, per_is_trim = periodos(per)
+            current_dest_col = next_data_column(current_dest_col, include_quarterly=per_is_trim)
+            
+        return results
+
+    def _execute_single_run(
+        self,
+        spread_path: str | Path,
+        dataset: FinancialDataSet,
+        dest_col: str,
+        prior_col: str | None,
+    ) -> dict:
+        spread_path = Path(spread_path)
+        spread_schema = SpreadSchema.load()
+        schema_end_row = max(
+            section.end_row for section in spread_schema.sections.values()
         )
 
         # 2. Extract Spread Schema
