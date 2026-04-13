@@ -1,5 +1,11 @@
 # app/screens/screen_1a.py
-# Mode 1A screen — redesigned with Design System (2026-04-10).
+# Mode 1A screen — Design System UI with full operator controls (2026-04-13).
+#
+# Operator controls restored vs. legacy gui.py:
+#   • Auto-detect columns   — checkbox disables Src/Dst column fields and calls
+#                             Mode1AWorkflow.detect_target_slot() at execution time.
+#   • Multi-period toggle   — checkbox passes multi_period=True to workflow.execute()
+#                             so the prior period is filled first, then the current.
 
 from __future__ import annotations
 
@@ -23,7 +29,21 @@ from themes.tokens import DS, RADIUS, BORDER_WIDTH
 
 
 class Screen1A(ctk.CTkFrame):
-    """Mode 1A: fill an existing Spread Proxy from a CVM source file."""
+    """Mode 1A: fill an existing Spread Proxy from a CVM source file.
+
+    Operator controls
+    -----------------
+    Auto-detect columns:
+        When checked the Src / Dest column fields are disabled.  The engine's
+        slot-detection logic (``Mode1AWorkflow.detect_target_slot``) infers the
+        correct target columns from the Spread's internal period grid at run time.
+
+    Multi-period:
+        When checked the engine fills *both* the prior period and the current
+        period in a single pass (``multi_period=True`` path in workflow.execute).
+        This mirrors the legacy "Preencher 2 períodos de uma vez" checkbox in
+        ``app/gui.py``.
+    """
 
     def __init__(self, master, **kwargs):
         kwargs.setdefault("fg_color", DS["background"])
@@ -31,7 +51,7 @@ class Screen1A(ctk.CTkFrame):
         super().__init__(master, **kwargs)
 
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(4, weight=1)   # log area expands
+        self.rowconfigure(5, weight=1)   # log area expands (row index shifted +1)
 
         # ── Page header ──────────────────────────────────────────────────
         header = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
@@ -93,20 +113,18 @@ class Screen1A(ctk.CTkFrame):
         self.period_field.grid(row=1, column=1, sticky="ew", padx=(0, 10), pady=(0, 10))
 
         self.dest_col_field = LabeledField(
-            settings_card, label="Dest Column", placeholder="C", width=80
+            settings_card, label="Dest Column", placeholder="auto", width=80
         )
-        self.dest_col_field.var.set("C")
         self.dest_col_field.grid(row=1, column=2, sticky="ew", padx=(0, 10), pady=(0, 10))
 
         self.prior_col_field = LabeledField(
-            settings_card, label="Prior Col (opt.)", placeholder="D", width=80
+            settings_card, label="Prior Col (opt.)", placeholder="auto", width=80
         )
-        self.prior_col_field.var.set("D")
         self.prior_col_field.grid(row=1, column=3, sticky="ew", pady=(0, 10))
 
-        # Entity type
+        # Entity type row
         entity_row = ctk.CTkFrame(settings_card, fg_color="transparent", corner_radius=0)
-        entity_row.grid(row=2, column=0, columnspan=4, sticky="w")
+        entity_row.grid(row=2, column=0, columnspan=4, sticky="w", pady=(2, 10))
 
         ctk.CTkLabel(
             entity_row,
@@ -129,9 +147,53 @@ class Screen1A(ctk.CTkFrame):
                 hover_color=_pair("primary_hover"),
             ).pack(side="left", padx=(0, 16))
 
+        # ── Operator controls card ────────────────────────────────────────
+        # Restores legacy gui.py controls: auto-detect columns + multi-period fill.
+        ops_card = StyledCard(self, padding=14)
+        ops_card.grid(row=3, column=0, sticky="ew", padx=24, pady=(10, 0))
+        ops_card.columnconfigure(0, weight=1)
+
+        SectionHeading(ops_card, title="Operator Controls").grid(
+            row=0, column=0, sticky="ew", pady=(0, 10)
+        )
+
+        ops_inner = ctk.CTkFrame(ops_card, fg_color="transparent", corner_radius=0)
+        ops_inner.grid(row=1, column=0, sticky="w")
+
+        # Auto-detect columns checkbox
+        self.auto_detect_var = ctk.BooleanVar(value=True)
+        self._auto_detect_cb = ctk.CTkCheckBox(
+            ops_inner,
+            text="Auto-detect Src / Dest columns from Spread grid",
+            variable=self.auto_detect_var,
+            font=_font("body"),
+            text_color=_pair("foreground"),
+            fg_color=_pair("primary"),
+            border_color=_pair("border"),
+            hover_color=_pair("primary_hover"),
+            command=self._on_auto_detect_toggle,
+        )
+        self._auto_detect_cb.pack(side="left", padx=(0, 32))
+
+        # Multi-period checkbox
+        self.multi_period_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            ops_inner,
+            text="Fill prior + current period (multi-period)",
+            variable=self.multi_period_var,
+            font=_font("body"),
+            text_color=_pair("foreground"),
+            fg_color=_pair("primary"),
+            border_color=_pair("border"),
+            hover_color=_pair("primary_hover"),
+        ).pack(side="left")
+
+        # Initialise column field state to match default checkbox state (True → disabled)
+        self._on_auto_detect_toggle()
+
         # ── Action row ────────────────────────────────────────────────────
         action_row = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
-        action_row.grid(row=3, column=0, sticky="ew", padx=24, pady=(16, 0))
+        action_row.grid(row=4, column=0, sticky="ew", padx=24, pady=(16, 0))
         action_row.columnconfigure(1, weight=1)
 
         self.run_btn = ctk.CTkButton(
@@ -153,7 +215,7 @@ class Screen1A(ctk.CTkFrame):
 
         # ── Log card ──────────────────────────────────────────────────────
         log_card = StyledCard(self, padding=0)
-        log_card.grid(row=4, column=0, sticky="nsew", padx=24, pady=(12, 20))
+        log_card.grid(row=5, column=0, sticky="nsew", padx=24, pady=(12, 20))
         log_card.columnconfigure(0, weight=1)
         log_card.rowconfigure(1, weight=1)
 
@@ -173,6 +235,20 @@ class Screen1A(ctk.CTkFrame):
             wrap="word",
         )
         self.log_box.pack(fill="both", expand=True, padx=1, pady=(0, 1))
+
+    # ── Operator-control callbacks ────────────────────────────────────────
+
+    def _on_auto_detect_toggle(self) -> None:
+        """Enable/disable column fields based on the auto-detect checkbox state."""
+        auto = self.auto_detect_var.get()
+        state = "disabled" if auto else "normal"
+        # Directly access the CTkEntry inside LabeledField
+        self.dest_col_field._entry.configure(state=state)
+        self.prior_col_field._entry.configure(state=state)
+        if auto:
+            # Clear any manually entered values so they don't shadow auto-detect
+            self.dest_col_field.set("")
+            self.prior_col_field.set("")
 
     # ── Teardown guard ───────────────────────────────────────────────────
 
@@ -210,32 +286,66 @@ class Screen1A(ctk.CTkFrame):
         spread = self.spread_picker.get_path()
         company = self.company_field.get().strip()
         period = self.period_field.get().strip()
-        dest_col = self.dest_col_field.get().strip()
-        prior_col = self.prior_col_field.get().strip()
         entity = self.entity_var.get()
+        auto_detect = self.auto_detect_var.get()
+        multi_period = self.multi_period_var.get()
 
-        if not all([source, spread, company, period, dest_col]):
-            self._log("[!] Fill in Source, Spread, Company, Period, and Dest Column before running.")
+        # Column values — only used when auto-detect is off
+        dest_col = self.dest_col_field.get().strip() if not auto_detect else None
+        prior_col = self.prior_col_field.get().strip() if not auto_detect else None
+
+        if not all([source, spread, company, period]):
+            self._log("[!] Fill in Source, Spread, Company, and Period before running.")
+            return
+
+        if not auto_detect and not dest_col:
+            self._log("[!] Enter a Dest Column or enable Auto-detect.")
             return
 
         self.run_btn.configure(state="disabled")
         self.progress.update("Starting…", 0.05)
-        self._log(f"[*] Mode 1A — {company} {period}")
+        mode_label = "multi-period" if multi_period else "single-period"
+        col_label = "auto-detect" if auto_detect else f"dest={dest_col}"
+        self._log(f"[*] Mode 1A — {company} {period}  [{mode_label} | {col_label}]")
 
         threading.Thread(
             target=self._execute,
-            args=(source, spread, company, period, dest_col, prior_col, entity),
+            args=(source, spread, company, period, dest_col, prior_col, entity, multi_period, auto_detect),
             daemon=True,
         ).start()
 
-    def _execute(self, source, spread, company, period, dest_col, prior_col, entity):
+    def _execute(
+        self,
+        source: str,
+        spread: str,
+        company: str,
+        period: str,
+        dest_col: str | None,
+        prior_col: str | None,
+        entity: str,
+        multi_period: bool,
+        auto_detect: bool,
+    ):
         try:
             entity_enum = (
                 EntityType.CONSOLIDATED if entity == "consolidated" else EntityType.INDIVIDUAL
             )
             workflow = Mode1AWorkflow()
 
-            self.progress.update("Running workflow…", 0.5)
+            # Auto-detect: resolve columns before execution and surface them to log
+            if auto_detect:
+                self.progress.update("Detecting columns…", 0.15)
+                slot = workflow.detect_target_slot(spread, period)
+                if not slot.has_available_slot:
+                    if self._widget_alive():
+                        self.progress.update("Failed", 0.0)
+                        self._log(f"[!] Slot detection failed: {slot.message}")
+                    return
+                dest_col = slot.destination_column
+                prior_col = slot.source_column
+                self._log(f"    Detected  Src={prior_col}  Dst={dest_col}  ({slot.message})")
+
+            self.progress.update("Running workflow…", 0.4)
 
             result = workflow.execute(
                 source_path=source,
@@ -243,8 +353,9 @@ class Screen1A(ctk.CTkFrame):
                 company=company,
                 period=period,
                 dest_col=dest_col,
-                prior_col=prior_col if prior_col else None,
+                prior_col=prior_col or None,
                 entity_type=entity_enum,
+                multi_period=multi_period,
             )
 
             if not self._widget_alive():
@@ -253,9 +364,22 @@ class Screen1A(ctk.CTkFrame):
             self.progress.update("Done", 1.0)
             self._log("[+] Workflow completed successfully.")
 
-            val = result.get("validation", {})
-            self._log(f"    Mapped  : {result.get('mapped_count')} items")
-            self._log(f"    Valid   : {val.get('is_valid')}  |  Missing: {len(val.get('missing', []))}")
+            # result is list[dict] for multi-period, dict for single
+            if isinstance(result, list):
+                for r in result:
+                    per_label = r.get("period", "?")
+                    val = r.get("validation", {})
+                    self._log(
+                        f"    [{per_label}]  Mapped: {r.get('mapped_count')}  "
+                        f"Valid: {val.get('is_valid')}  "
+                        f"Missing: {len(val.get('missing', []))}"
+                    )
+            else:
+                val = result.get("validation", {})
+                self._log(f"    Mapped  : {result.get('mapped_count')} items")
+                self._log(
+                    f"    Valid   : {val.get('is_valid')}  |  Missing: {len(val.get('missing', []))}"
+                )
 
         except Exception:
             if self._widget_alive():
