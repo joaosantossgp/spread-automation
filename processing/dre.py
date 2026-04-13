@@ -40,19 +40,24 @@ def aplicar_dre_manual(
     schema = spread_schema()
 
     sums: dict[str, int | None] = defaultdict(lambda: None)
-    for _, record in df_dre.iterrows():
-        desc = record.get("Descricao Conta")
-        if pd.isna(desc):
-            continue
-        row_key = registry.layer2(str(desc))
-        if row_key is None:
-            continue
-        raw = record.get(col_valor)
-        val = normaliza_num(raw)
-        if val is None:
-            continue
-        prev = sums[row_key]
-        sums[row_key] = val if prev is None else prev + val
+
+    if "Descricao Conta" in df_dre.columns and col_valor in df_dre.columns:
+        desc_idx = df_dre.columns.get_loc("Descricao Conta")
+        val_idx = df_dre.columns.get_loc(col_valor)
+
+        for row in df_dre.itertuples(index=False, name=None):
+            desc = row[desc_idx]
+            if pd.isna(desc):
+                continue
+            row_key = registry.layer2(str(desc))
+            if row_key is None:
+                continue
+            raw = row[val_idx]
+            val = normaliza_num(raw)
+            if val is None:
+                continue
+            prev = sums[row_key]
+            sums[row_key] = val if prev is None else prev + val
 
     for row_key, total in sums.items():
         if total is None:
