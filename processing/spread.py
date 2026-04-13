@@ -38,16 +38,24 @@ def valor_corresp(
 ) -> int | None:
     """
     Versão legada/individual do matching por valor.
-    Para melhor performance em loops, prefira usar um mapa pré-calculado.
+    Otimizada para cachear índices no DataFrame (resolve o padrão de N+1 queries).
     """
     for df in abas.values():
         if prev not in df.columns or curr not in df.columns:
             continue
-        # Filtra a coluna 'prev' para encontrar o valor 'n' normalizado
-        # Otimização: evita .apply() se possível ou usa indexação
-        mask = df[prev].apply(normaliza_num) == n
-        if mask.any():
-            return normaliza_num(df.loc[mask, curr].iloc[0])
+
+        cache_key = f"_indexed_{prev}"
+        if cache_key not in df.attrs:
+            norm_series = df[prev].apply(normaliza_num)
+            df.attrs[cache_key] = df.set_index(norm_series)
+
+        indexed_df = df.attrs[cache_key]
+        if n in indexed_df.index:
+            match = indexed_df.loc[n]
+            if isinstance(match, pd.DataFrame):
+                return normaliza_num(match[curr].iloc[0])
+            return normaliza_num(match[curr])
+
     return None
 
 
