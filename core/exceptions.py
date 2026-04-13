@@ -31,6 +31,19 @@ class ScannedPDFError(SpreadAutomationError):
     """Raised when a PDF appears to be image-only or otherwise unreadable."""
 
 
+class TemplateNotAvailableError(SpreadAutomationError, FileNotFoundError):
+    """Raised when Mode 1B cannot locate the required blank Spread template."""
+
+    def __init__(self, template_path: str) -> None:
+        super().__init__(
+            f"Mode 1B requires a blank Spread Proxy template that is not currently available.\n"
+            f"Expected location: {template_path}\n"
+            "To enable Mode 1B, place a blank 'Spread Proxy Template.xlsx' at the path above. "
+            "The file must contain the label column and formula structure with all data columns empty."
+        )
+        self.template_path = template_path
+
+
 __all__ = [
     "SpreadAutomationError",
     "SchemaError",
@@ -39,4 +52,5 @@ __all__ = [
     "IncompatibleSourceError",
     "MappingError",
     "ScannedPDFError",
+    "TemplateNotAvailableError",
 ]

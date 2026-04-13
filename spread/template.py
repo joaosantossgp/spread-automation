@@ -5,12 +5,16 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from core.exceptions import TemplateNotAvailableError
+
 
 class TemplateManager:
     """Manages copying a blank template Spread into a target file."""
 
     def __init__(self, template_path: str | Path):
         self.template_path = Path(template_path)
+        if not self.template_path.exists():
+            raise TemplateNotAvailableError(str(self.template_path.resolve()))
 
     def create_from_template(self, dest_path: str | Path, overwrite: bool = False) -> Path:
         """
