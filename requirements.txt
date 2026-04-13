@@ -7,3 +7,10 @@ customtkinter>=5.0
 
 # Integração com Excel ao vivo (opcional — apenas Windows)
 # xlwings>=0.30
+
+# Dependências Phase 3
+markitdown[pdf]
+rapidfuzz>=3.0
+
+# Testes de regressão
+pytest

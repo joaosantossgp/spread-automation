@@ -8,7 +8,7 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(SPECPATH).resolve()
 
 
 def existing_data_dir(relative_path: str) -> tuple[str, str] | None:
@@ -34,6 +34,9 @@ datas.extend(collect_data_files("customtkinter"))
 hiddenimports = [
     "customtkinter",
     "openpyxl.cell._writer",
+    "markitdown",
+    "rapidfuzz.fuzz",
+    "rapidfuzz.process",
 ]
 
 excludes = [
