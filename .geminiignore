@@ -1,0 +1,7 @@
+.venv/
+data/
+data/examples/
+__pycache__/
+*.pdf
+*.xml
+*.zip
