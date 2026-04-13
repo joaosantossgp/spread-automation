@@ -23,6 +23,7 @@ body:
         - Update the auto-applied labels after creation if lane, area, priority, or risk do not match the task.
         - If the write-set touches shared-governance or other critical paths from `.github/guardrails/path-policy.json`, open the PR as draft.
         - Use child tasks for cross-lane write access instead of expanding the write-set informally.
+        - Use `Source PR` only when a task is created after a Jules PR was already published. Otherwise set it to `n/a`.
 
   - type: input
     id: epic-parent
@@ -84,6 +85,15 @@ body:
       label: Task workspace
       description: "Must match `.claude/worktrees/<lane>/<issue-number>-<slug>/`. Alias: Workspace da task"
       placeholder: .claude/worktrees/ops-quality/38-contributing-templates/
+    validations:
+      required: true
+
+  - type: input
+    id: source-pr
+    attributes:
+      label: Source PR
+      description: "Use `#<pr-number>` only when this task was created after a Jules PR was published. Otherwise use `n/a`. Alias: PR de origem"
+      placeholder: "#44 or n/a"
     validations:
       required: true
 
