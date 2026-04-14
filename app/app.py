@@ -6,7 +6,7 @@ _THEME_PATH = Path(__file__).parent.parent / "themes" / "ctk_theme.json"
 ctk.set_default_color_theme(str(_THEME_PATH))
 ctk.set_appearance_mode("light")
 
-from app.screens import ModeSelector, Screen1A, Screen1B
+from app.screens import ModeSelector, Screen1A, Screen1B, Screen2
 
 
 class SpreadApp(ctk.CTk):
@@ -31,7 +31,7 @@ class SpreadApp(ctk.CTk):
         self.container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        for F in (ModeSelector, Screen1A, Screen1B):
+        for F in (ModeSelector, Screen1A, Screen1B, Screen2):
             screen_name = F.__name__
             frame = F(master=self.container)
             self.frames[screen_name] = frame
