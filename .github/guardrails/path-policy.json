@@ -26,7 +26,8 @@
       "tests/**",
       "*.md",
       "LICENSE",
-      ".gitignore"
+      ".gitignore",
+      "data/test_samples/**"
     ],
     "master": [
       "app/**",
