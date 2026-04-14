@@ -6,7 +6,7 @@ _THEME_PATH = Path(__file__).parent.parent / "themes" / "ctk_theme.json"
 ctk.set_default_color_theme(str(_THEME_PATH))
 ctk.set_appearance_mode("light")
 
-from app.screens.screen_1a import Screen1A
+from app.screens import ModeSelector, Screen1A, Screen1B
 
 
 class SpreadApp(ctk.CTk):
@@ -25,8 +25,25 @@ class SpreadApp(ctk.CTk):
         self._destroyed = False
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-        self.screen_1a = Screen1A(self)
-        self.screen_1a.grid(row=0, column=0, sticky="nsew")
+        self.container = ctk.CTkFrame(self, fg_color="transparent")
+        self.container.grid(row=0, column=0, sticky="nsew")
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
+
+        self.frames = {}
+        for F in (ModeSelector, Screen1A, Screen1B):
+            screen_name = F.__name__
+            frame = F(master=self.container)
+            self.frames[screen_name] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
+
+        self.show_screen("ModeSelector")
+
+    def show_screen(self, screen_name: str) -> None:
+        """Raise a screen to the top of the stacking order."""
+        frame = self.frames.get(screen_name)
+        if frame:
+            frame.tkraise()
 
     def _on_close(self) -> None:
         """Cancel pending after-callbacks before destroying the window.
