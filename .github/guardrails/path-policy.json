@@ -4,7 +4,8 @@
   "laneAllowlists": {
     "app-ui": [
       "app/**",
-      "themes/**"
+      "themes/**",
+      "tests/**"
     ],
     "engine-finance": [
       "core/**",
@@ -15,7 +16,8 @@
       "spread/**",
       "validation/**",
       "engine/**",
-      "templates/**"
+      "templates/**",
+      "tests/**"
     ],
     "ops-quality": [
       ".github/**",
