@@ -8,6 +8,8 @@ data/*.zip
 data/*.xlsx
 data/*/*/
 data/Minerva*/
+!data/test_samples/
+
 
 # Diretórios antigos (legado)
 ITRs DFPs non-CVM/
