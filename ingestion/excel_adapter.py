@@ -13,6 +13,13 @@ class CVMExcelAdapter(IngestionAdapter):
     """
 
     def load(self, config: IngestionConfig) -> FinancialDataSet:
+
+        if not config.entity_type or config.entity_type not in list(EntityType):
+            raise ValueError(
+                f"Invalid or missing entity_type '{config.entity_type}' received during Excel data ingestion. "
+                f"Expected one of {[e.value for e in EntityType]}."
+            )
+
         path = Path(config.path)
         is_trim = "T" in config.period.upper()
         
@@ -49,7 +56,7 @@ class CVMExcelAdapter(IngestionAdapter):
                 # Identify value columns
                 if section == "DMPL":
                     # For DMPL, we look for 'Patrimonio liquido Consolidado' or 'Patrimonio Liquido'
-                    val_col = "Patrimonio liquido Consolidado" if entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
+                    val_col = "Patrimonio liquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
                     if val_col in df.columns:
                         val = row.get(val_col)
                         if pd.notna(val):
