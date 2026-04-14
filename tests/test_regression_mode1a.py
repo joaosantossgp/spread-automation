@@ -29,8 +29,8 @@ def _ensure_golden_reference(minerva_4t24):
 
     try:
         processar(
-            ori=str(minerva_4t24["dados_path"]),
-            spr=str(minerva_4t24["spread_path"]),
+            ori=Path(minerva_4t24["dados_path"]),
+            spr=Path(minerva_4t24["spread_path"]),
             tipo="consolidado",
             periodo="4T24",
             src_txt="D",
@@ -101,3 +101,45 @@ def test_mode1a_matches_legacy_mapped_count(minerva_4t24):
     
     # 4. Compare counts
     assert mode1a_count == legacy_count, f"Mode 1A mapped {mode1a_count} items, expected {legacy_count} (golden reference)"
+
+def test_mode1a_individual(minerva_4t24):
+    """
+    Validates that Mode1AWorkflow processes the Individual scenario without crashing
+    and maps some accounts.
+    """
+    workflow = Mode1AWorkflow()
+    result = workflow.execute(
+        source_path=minerva_4t24["dados_path"],
+        spread_path=minerva_4t24["spread_path"],
+        company="Minerva",
+        period="4T24",
+        prior_col="D",
+        dest_col="L",
+        entity_type="individual"
+    )
+
+    assert isinstance(result, dict)
+    assert result["status"] == "success"
+    assert result["mapped_count"] > 0
+
+
+def test_mode1a_missing_entity_type(minerva_4t24):
+    """
+    Validates that omitting entity_type or passing an invalid one raises a ValueError
+    or is handled gracefully, but we test invalid/missing behavior in adapter directly.
+    """
+    import pytest
+    from core.models import EntityType
+
+    # Wait, workflow defaults to CONSOLIDATED. If we pass None or an invalid type explicitly:
+    workflow = Mode1AWorkflow()
+    with pytest.raises(ValueError, match="Expected one of"):
+        workflow.execute(
+            source_path=minerva_4t24["dados_path"],
+            spread_path=minerva_4t24["spread_path"],
+            company="Minerva",
+            period="4T24",
+            prior_col="D",
+            dest_col="L",
+            entity_type="invalid_type"
+        )
