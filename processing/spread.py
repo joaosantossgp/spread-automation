@@ -38,23 +38,33 @@ def valor_corresp(
 ) -> int | None:
     """
     Versão legada/individual do matching por valor.
-    Otimizada para cachear índices no DataFrame (resolve o padrão de N+1 queries).
+    Otimizada para cachear o dicionário (resolve o padrão de N+1 queries).
     """
     for df in abas.values():
         if prev not in df.columns or curr not in df.columns:
             continue
 
-        cache_key = f"_indexed_{prev}"
+        cache_key = f"_mapa_{prev}_{curr}"
         if cache_key not in df.attrs:
-            norm_series = df[prev].apply(normaliza_num)
-            df.attrs[cache_key] = df.set_index(norm_series)
+            # Build an internal lookup dictionary for this dataframe just once
+            mapa = {}
+            temp_df = pd.DataFrame({
+                'v_prev': df[prev],
+                'v_curr': df[curr]
+            })
+            for row in temp_df.itertuples(index=False, name=None):
+                v_prev = normaliza_num(row[0])
+                if v_prev is not None:
+                    v_curr = normaliza_num(row[1])
+                    if v_curr is not None:
+                        v_prev_int = int(v_prev)
+                        if v_prev_int not in mapa:
+                            mapa[v_prev_int] = int(v_curr)
+            df.attrs[cache_key] = mapa
 
-        indexed_df = df.attrs[cache_key]
-        if n in indexed_df.index:
-            match = indexed_df.loc[n]
-            if isinstance(match, pd.DataFrame):
-                return normaliza_num(match[curr].iloc[0])
-            return normaliza_num(match[curr])
+        mapa = df.attrs[cache_key]
+        if n in mapa:
+            return mapa[n]
 
     return None
 
@@ -71,21 +81,23 @@ def criar_mapa_corresp(
     for df in abas.values():
         if prev not in df.columns or curr not in df.columns:
             continue
-        # Extrai as colunas e normaliza em lote
-        # Usamos dropna para ignorar valores que não normalizam para int
-        temp_df = pd.DataFrame({
-            'v_prev': df[prev].apply(normaliza_num),
-            'v_curr': df[curr].apply(normaliza_num)
-        }).dropna()
 
-        # Converte para dict (o último valor encontrado para uma chave prevalece)
-        # Invertemos a ordem se quisermos que o primeiro prevaleça,
-        # mas aqui seguimos o comportamento de valor_corresp que pega o primeiro hit.
-        # Então percorremos em ordem reversa para o dict.update ou apenas pegamos o primeiro.
-        for _, row in temp_df.iterrows():
-            v_prev = int(row['v_prev'])
-            if v_prev not in mapa:
-                mapa[v_prev] = int(row['v_curr'])
+        # OTIMIZAÇÃO: iterar sobre subconjunto das colunas necessárias via itertuples
+        temp_df = pd.DataFrame({
+            'v_prev': df[prev],
+            'v_curr': df[curr]
+        })
+
+        # Iteração ultra-rápida (substitui .iterrows() e bypasses overhead de pd.Series)
+        for row in temp_df.itertuples(index=False, name=None):
+            v_prev = normaliza_num(row[0])
+            if v_prev is not None:
+                v_curr = normaliza_num(row[1])
+                if v_curr is not None:
+                    v_prev_int = int(v_prev)
+                    # Mantém o comportamento original
+                    if v_prev_int not in mapa:
+                        mapa[v_prev_int] = int(v_curr)
     return mapa
 
 
@@ -202,7 +214,7 @@ def atualizar_ws(
                         used_vals.add(novo)
             else:
                 # fórmula complexa
-                mp = lambda n: mapa_corresp.get(n)
+                def mp(n): return mapa_corresp.get(n)
                 destino = adjust_complex_formula(v, delta, mp, used_vals)
                 wrote = destino != v
 
