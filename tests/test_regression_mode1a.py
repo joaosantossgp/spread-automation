@@ -1,3 +1,4 @@
+import pytest
 """Regression tests for Mode 1A."""
 
 import json
@@ -128,10 +129,6 @@ def test_mode1a_missing_entity_type(minerva_4t24):
     Validates that omitting entity_type or passing an invalid one raises a ValueError
     or is handled gracefully, but we test invalid/missing behavior in adapter directly.
     """
-    import pytest
-    from core.models import EntityType
-
-    # Wait, workflow defaults to CONSOLIDATED. If we pass None or an invalid type explicitly:
     workflow = Mode1AWorkflow()
     with pytest.raises(ValueError, match="Expected one of"):
         workflow.execute(

@@ -40,7 +40,17 @@
       "spread/**",
       "validation/**",
       "engine/**",
-      "templates/**"
+      "templates/**",
+      ".github/**",
+      ".claude/**",
+      "docs/**",
+      "scripts/**",
+      "assets/**",
+      "tests/**",
+      "*.md",
+      "LICENSE",
+      ".gitignore",
+      "data/test_samples/**"
     ]
   },
   "criticalGroups": [
@@ -66,10 +76,10 @@
       ],
       "ownerLane": "ops-quality",
       "allowedLanes": [
+        "master",
         "app-ui",
-        "engine-finance",
         "ops-quality",
-        "master"
+        "engine-finance"
       ],
       "minimumRisk": "shared",
       "requireDraft": true,
@@ -91,6 +101,7 @@
       ],
       "ownerLane": "ops-quality",
       "allowedLanes": [
+        "master",
         "ops-quality"
       ],
       "minimumRisk": "shared",
@@ -113,8 +124,8 @@
       ],
       "ownerLane": "engine-finance",
       "allowedLanes": [
-        "engine-finance",
-        "master"
+        "master",
+        "engine-finance"
       ],
       "minimumRisk": "shared",
       "requireDraft": true,
@@ -130,8 +141,8 @@
       ],
       "ownerLane": "engine-finance",
       "allowedLanes": [
-        "engine-finance",
-        "master"
+        "master",
+        "engine-finance"
       ],
       "minimumRisk": "contract-sensitive",
       "requireDraft": true,
