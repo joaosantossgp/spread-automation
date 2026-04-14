@@ -1,5 +1,6 @@
-import pytest
 """Regression tests for Mode 1A."""
+
+import pytest
 
 import json
 import re
