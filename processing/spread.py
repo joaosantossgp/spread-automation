@@ -82,10 +82,10 @@ def criar_mapa_corresp(
         # Invertemos a ordem se quisermos que o primeiro prevaleça,
         # mas aqui seguimos o comportamento de valor_corresp que pega o primeiro hit.
         # Então percorremos em ordem reversa para o dict.update ou apenas pegamos o primeiro.
-        for _, row in temp_df.iterrows():
-            v_prev = int(row['v_prev'])
+        for row in temp_df.itertuples(index=False):
+            v_prev = int(row.v_prev)
             if v_prev not in mapa:
-                mapa[v_prev] = int(row['v_curr'])
+                mapa[v_prev] = int(row.v_curr)
     return mapa
 
 

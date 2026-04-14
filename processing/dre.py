@@ -42,22 +42,20 @@ def aplicar_dre_manual(
     sums: dict[str, int | None] = defaultdict(lambda: None)
 
     if "Descricao Conta" in df_dre.columns and col_valor in df_dre.columns:
-        desc_idx = df_dre.columns.get_loc("Descricao Conta")
-        val_idx = df_dre.columns.get_loc(col_valor)
-
-        for row in df_dre.itertuples(index=False, name=None):
-            desc = row[desc_idx]
-            if pd.isna(desc):
-                continue
-            row_key = registry.layer2(str(desc))
-            if row_key is None:
-                continue
-            raw = row[val_idx]
-            val = normaliza_num(raw)
-            if val is None:
-                continue
-            prev = sums[row_key]
-            sums[row_key] = val if prev is None else prev + val
+        # Optimization: Drop missing values and vectorize resolution
+        df_valid = df_dre.dropna(subset=["Descricao Conta", col_valor]).copy()
+        if not df_valid.empty:
+            df_valid['row_key'] = df_valid["Descricao Conta"].astype(str).apply(registry.layer2)
+            df_valid = df_valid.dropna(subset=['row_key'])
+            if not df_valid.empty:
+                df_valid['norm_val'] = df_valid[col_valor].apply(normaliza_num)
+                df_valid = df_valid.dropna(subset=['norm_val'])
+                if not df_valid.empty:
+                    # Group by row_key and sum the normalized values
+                    grouped = df_valid.groupby('row_key')['norm_val'].sum()
+                    for k, v in grouped.items():
+                        prev = sums[k]
+                        sums[k] = int(v) if prev is None else prev + int(v)
 
     for row_key, total in sums.items():
         if total is None:
