@@ -103,7 +103,7 @@ class FilePickerWidget(ctk.CTkFrame):
         path = picker.get_path()
     """
 
-    def __init__(self, master, label: str, filetypes: list | None = None, **kwargs):
+    def __init__(self, master, label: str, filetypes: list | None = None, mode: str = "open", **kwargs):
         kwargs.setdefault("fg_color", _pair("card"))
         kwargs.setdefault("border_color", _pair("border"))
         kwargs.setdefault("border_width", BORDER_WIDTH)
@@ -111,6 +111,7 @@ class FilePickerWidget(ctk.CTkFrame):
         super().__init__(master, **kwargs)
 
         self._filetypes = filetypes or [("Excel files", "*.xlsx *.xlsm *.xls"), ("All files", "*.*")]
+        self._mode = mode
         self.path_var = ctk.StringVar()
 
         self.columnconfigure(1, weight=1)
@@ -154,7 +155,11 @@ class FilePickerWidget(ctk.CTkFrame):
         self._btn.grid(row=0, column=2, padx=(0, 14), pady=12)
 
     def _browse(self):
-        path = filedialog.askopenfilename(filetypes=self._filetypes)
+        if self._mode == "save":
+            path = filedialog.asksaveasfilename(filetypes=self._filetypes, defaultextension=".xlsx")
+        else:
+            path = filedialog.askopenfilename(filetypes=self._filetypes)
+            
         if path:
             self.path_var.set(path)
             self._entry.configure(state="normal")

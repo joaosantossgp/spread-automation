@@ -4,6 +4,10 @@
 *.xlsb
 *.log
 data/examples/
+data/*.zip
+data/*.xlsx
+data/*/*/
+data/Minerva*/
 
 # Diretórios antigos (legado)
 ITRs DFPs non-CVM/
