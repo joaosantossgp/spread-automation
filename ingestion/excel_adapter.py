@@ -47,10 +47,19 @@ class CVMExcelAdapter(IngestionAdapter):
                 
             df = pd.read_excel(xls, sheet_name=sheet_orig, engine=engine)
             
-            for _, row in df.iterrows():
+            col_map = {col: i for i, col in enumerate(df.columns)}
+
+            def get_val(r, *col_names, default=None):
+                for col_name in col_names:
+                    idx = col_map.get(col_name)
+                    if idx is not None:
+                        return r[idx]
+                return default
+
+            for row in df.itertuples(index=False, name=None):
                 # Extract code and description
-                codigo = str(row.get("Codigo Conta", row.get("CodigoConta", ""))).strip()
-                descricao = str(row.get("Descricao Conta", row.get("DescricaoConta", ""))).strip()
+                codigo = str(get_val(row, "Codigo Conta", "CodigoConta", default="")).strip()
+                descricao = str(get_val(row, "Descricao Conta", "DescricaoConta", default="")).strip()
                 
                 if not codigo or not descricao:
                     continue
@@ -62,7 +71,7 @@ class CVMExcelAdapter(IngestionAdapter):
                     if val_col not in df.columns:
                         val_col = "Patrimonio liquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
                     if val_col in df.columns:
-                        val = row.get(val_col)
+                        val = get_val(row, val_col)
                         if pd.notna(val):
                             accounts.append(FinancialAccount(
                                 code=codigo,
@@ -80,15 +89,15 @@ class CVMExcelAdapter(IngestionAdapter):
                     
                     if is_trim:
                         if section in ("ATIVO", "PASSIVO"):
-                            val_atual = row.get("Valor Trimestre Atual") if "Valor Trimestre Atual" in df.columns else row.get("Valor Ultimo Exercicio")
-                            val_ant = row.get("Valor Exercicio Anterior") if "Valor Exercicio Anterior" in df.columns else row.get("Valor Penultimo Exercicio")
+                            val_atual = get_val(row, "Valor Trimestre Atual", "Valor Ultimo Exercicio")
+                            val_ant = get_val(row, "Valor Exercicio Anterior", "Valor Penultimo Exercicio")
                         else:
-                            val_atual = row.get("Valor Acumulado Atual Exercicio") if "Valor Acumulado Atual Exercicio" in df.columns else row.get("Valor Ultimo Exercicio")
-                            val_ant = row.get("Valor Acumulado Exercicio Anterior") if "Valor Acumulado Exercicio Anterior" in df.columns else row.get("Valor Penultimo Exercicio")
+                            val_atual = get_val(row, "Valor Acumulado Atual Exercicio", "Valor Ultimo Exercicio")
+                            val_ant = get_val(row, "Valor Acumulado Exercicio Anterior", "Valor Penultimo Exercicio")
                     else:
-                        val_atual = row.get("Valor Ultimo Exercicio")
-                        val_ant = row.get("Valor Penultimo Exercicio")
-                        val_ant2 = row.get("Valor Antepenultimo Exercicio")
+                        val_atual = get_val(row, "Valor Ultimo Exercicio")
+                        val_ant = get_val(row, "Valor Penultimo Exercicio")
+                        val_ant2 = get_val(row, "Valor Antepenultimo Exercicio")
                     
                     # Add current period account
                     if val_atual is not None and pd.notna(val_atual):

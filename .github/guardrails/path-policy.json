@@ -18,17 +18,16 @@
       "templates/**"
     ],
     "ops-quality": [
-      "scripts/**",
-      "tests/**",
-      "docs/**",
-      "ingestion/**",
       ".github/**",
-      "assets/**",
-      "data/test_samples/**",
-      ".gitignore",
-      "LICENSE",
       ".claude/**",
-      "*.md"
+      "docs/**",
+      "scripts/**",
+      "assets/**",
+      "tests/**",
+      "*.md",
+      "LICENSE",
+      ".gitignore",
+      "data/test_samples/**"
     ],
     "master": [
       "app/**",
