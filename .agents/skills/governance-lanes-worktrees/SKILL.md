@@ -154,12 +154,6 @@ Detailed lifecycle: [Operation Flow](./references/operation-flow.md).
 ## Merge Lifecycle Automation
 The skill generates two complementary workflows that close the governance loop after PR validation:
 
-**jules-pr-governance.workflow.yml**
-- Triggered by pull request events only for PRs identified as Jules-originated
-- Allows the PR-first exception only for Jules while keeping the standard issue-first guardrail for everyone else
-- Requires a post-publication task issue, `Source PR`, `Closes #N`, and the normal lane/write-set/risk validation before merge
-- Keeps the Jules identity persistent through a `source:jules` PR label
-
 **auto-merge.workflow.yml**
 - Triggered by `workflow_run` on the guardrails check completing with `success`
 - Finds the open PR for the commit, checks if it is not a draft
@@ -175,7 +169,7 @@ The skill generates two complementary workflows that close the governance loop a
 
 Both workflows require `GITHUB_TOKEN` with `contents:write`, `pull-requests:write`, and `issues:write` permissions respectively.
 
-**Path policy requirement**: The generated `path-policy.json` must include `.claude/**` in the `ops-quality` lane allowlist and in the `shared-governance` critical group patterns so skill files can be governed correctly.
+**Path policy requirement**: The generated `path-policy.json` must include `.Codex/**` in the `ops-quality` lane allowlist and in the `shared-governance` critical group patterns so skill files can be governed correctly.
 
 ## Quality Gate
 A run is accepted only if:
