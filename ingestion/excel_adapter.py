@@ -24,14 +24,16 @@ class CVMExcelAdapter(IngestionAdapter):
         is_trim = "T" in config.period.upper()
         
         chapa = "Cons" if config.entity_type == EntityType.CONSOLIDATED else "Ind"
-        aba_dm = f"DF {chapa} DMPL {'Atual' if is_trim else 'Ultimo'}"
+        aba_dm_atual = f"DF {chapa} DMPL Atual"
+        aba_dm_ultimo = f"DF {chapa} DMPL Ultimo"
         
         sheet_map = {
             f"DF {chapa} Ativo": "ATIVO",
             f"DF {chapa} Passivo": "PASSIVO",
             f"DF {chapa} Resultado Periodo": "DRE",
             f"DF {chapa} Fluxo de Caixa": "DFC",
-            aba_dm: "DMPL",
+            aba_dm_atual: "DMPL",
+            aba_dm_ultimo: "DMPL",
         }
 
         engine = "openpyxl" if path.suffix.lower() in (".xlsx", ".xlsm") else None
@@ -45,10 +47,19 @@ class CVMExcelAdapter(IngestionAdapter):
                 
             df = pd.read_excel(xls, sheet_name=sheet_orig, engine=engine)
             
-            for _, row in df.iterrows():
+            col_map = {col: i for i, col in enumerate(df.columns)}
+
+            def get_val(r, *col_names, default=None):
+                for col_name in col_names:
+                    idx = col_map.get(col_name)
+                    if idx is not None:
+                        return r[idx]
+                return default
+
+            for row in df.itertuples(index=False, name=None):
                 # Extract code and description
-                codigo = str(row.get("Codigo Conta", row.get("CodigoConta", ""))).strip()
-                descricao = str(row.get("Descricao Conta", row.get("DescricaoConta", ""))).strip()
+                codigo = str(get_val(row, "Codigo Conta", "CodigoConta", default="")).strip()
+                descricao = str(get_val(row, "Descricao Conta", "DescricaoConta", default="")).strip()
                 
                 if not codigo or not descricao:
                     continue
@@ -56,9 +67,11 @@ class CVMExcelAdapter(IngestionAdapter):
                 # Identify value columns
                 if section == "DMPL":
                     # For DMPL, we look for 'Patrimonio liquido Consolidado' or 'Patrimonio Liquido'
-                    val_col = "Patrimonio liquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
+                    val_col = "Patrimônio líquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimônio Líquido"
+                    if val_col not in df.columns:
+                        val_col = "Patrimonio liquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
                     if val_col in df.columns:
-                        val = row.get(val_col)
+                        val = get_val(row, val_col)
                         if pd.notna(val):
                             accounts.append(FinancialAccount(
                                 code=codigo,
@@ -76,15 +89,15 @@ class CVMExcelAdapter(IngestionAdapter):
                     
                     if is_trim:
                         if section in ("ATIVO", "PASSIVO"):
-                            val_atual = row.get("Valor Trimestre Atual")
-                            val_ant = row.get("Valor Exercicio Anterior")
+                            val_atual = get_val(row, "Valor Trimestre Atual", "Valor Ultimo Exercicio")
+                            val_ant = get_val(row, "Valor Exercicio Anterior", "Valor Penultimo Exercicio")
                         else:
-                            val_atual = row.get("Valor Acumulado Atual Exercicio")
-                            val_ant = row.get("Valor Acumulado Exercicio Anterior")
+                            val_atual = get_val(row, "Valor Acumulado Atual Exercicio", "Valor Ultimo Exercicio")
+                            val_ant = get_val(row, "Valor Acumulado Exercicio Anterior", "Valor Penultimo Exercicio")
                     else:
-                        val_atual = row.get("Valor Ultimo Exercicio")
-                        val_ant = row.get("Valor Penultimo Exercicio")
-                        val_ant2 = row.get("Valor Antepenultimo Exercicio")
+                        val_atual = get_val(row, "Valor Ultimo Exercicio")
+                        val_ant = get_val(row, "Valor Penultimo Exercicio")
+                        val_ant2 = get_val(row, "Valor Antepenultimo Exercicio")
                     
                     # Add current period account
                     if val_atual is not None and pd.notna(val_atual):
