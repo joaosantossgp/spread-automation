@@ -45,6 +45,9 @@ venv/
 !.claude/skills/master-plan/
 .claude/skills/master-plan/*
 !.claude/skills/master-plan/SKILL.md
+!.claude/skills/pr-merge-driver/
+.claude/skills/pr-merge-driver/*
+!.claude/skills/pr-merge-driver/SKILL.md
 .governance-bootstrap/
 
 # Arquivos antigos (removidos na reorganização)
@@ -57,3 +60,7 @@ venv/
 # PyInstaller Outputs
 build/
 dist/
+
+# Skill package files and eval artifacts (extract .skill before committing)
+*.skill
+*.html

@@ -128,6 +128,23 @@ After merge:
 - confirm status is `status:completed`
 - remove the task worktree and local branch if they are no longer needed
 
+## Context Compaction Protocol
+
+When Claude's context window fills and automatic compaction occurs, preserve:
+- The active task issue number and its current status
+- Governance rules or lane ownership decisions invoked during this session
+- Design decisions taken and their rationale
+- Test failures and their identified root cause
+- Files modified in this session (with brief note on what changed)
+- References to MEMORIADASIA.md and CONTEXT.md (always reload these)
+
+Discard at compaction time:
+- Exploration logs and discovery work
+- Intermediate attempts and failed approaches
+- Full session transcripts (keep only the decision summary)
+
+**Memory file rule:** MEMORIADASIA.md grows session-by-session. After 3 active sessions, compress older session logs into a 2-line summary and move to "Prior Session Archive" section. Keep current state and permanent decisions always available.
+
 ## References
 
 - `AGENTS.md`
