@@ -1,7 +1,8 @@
 # CONTEXT.md — Contexto Completo do Projeto
 
-> Este documento é a referência principal para qualquer pessoa ou agente de IA
-> que precise entender o projeto. Leia antes de modificar qualquer código.
+> **Referência principal do projeto.** Leia as seções relevantes ao módulo ou
+> demonstrativo que está sendo alterado — não é necessário ler o arquivo inteiro.
+> Para fatos críticos não-inferíveis do código, consulte [CLAUDE.md](CLAUDE.md) primeiro.
 
 ---
 

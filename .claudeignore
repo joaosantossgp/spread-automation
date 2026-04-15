@@ -1,0 +1,25 @@
+# Binary and large data files — never explore these during glob/find operations
+
+# Financial data and test samples
+data/
+
+# Reference docs — large binary files in docs/
+docs/*.pdf
+docs/*.xls
+docs/*.xlsx
+docs/*.xlsm
+docs/*.xlsb
+docs/*.zip
+docs/*.csv
+docs/plano-contas-fixas-DFP/
+
+# Python runtime artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
