@@ -20,6 +20,7 @@
     "ops-quality": [
       ".github/**",
       ".claude/**",
+      ".agents/**",
       "docs/**",
       "scripts/**",
       "assets/**",
@@ -62,7 +63,8 @@
         "docs/**",
         ".github/ISSUE_TEMPLATE/**",
         ".github/PULL_REQUEST_TEMPLATE.md",
-        ".claude/**"
+        ".claude/**",
+        ".agents/**"
       ],
       "ownerLane": "ops-quality",
       "allowedLanes": [
