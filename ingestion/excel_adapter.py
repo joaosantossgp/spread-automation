@@ -24,14 +24,16 @@ class CVMExcelAdapter(IngestionAdapter):
         is_trim = "T" in config.period.upper()
         
         chapa = "Cons" if config.entity_type == EntityType.CONSOLIDATED else "Ind"
-        aba_dm = f"DF {chapa} DMPL {'Atual' if is_trim else 'Ultimo'}"
+        aba_dm_atual = f"DF {chapa} DMPL Atual"
+        aba_dm_ultimo = f"DF {chapa} DMPL Ultimo"
         
         sheet_map = {
             f"DF {chapa} Ativo": "ATIVO",
             f"DF {chapa} Passivo": "PASSIVO",
             f"DF {chapa} Resultado Periodo": "DRE",
             f"DF {chapa} Fluxo de Caixa": "DFC",
-            aba_dm: "DMPL",
+            aba_dm_atual: "DMPL",
+            aba_dm_ultimo: "DMPL",
         }
 
         engine = "openpyxl" if path.suffix.lower() in (".xlsx", ".xlsm") else None
@@ -65,7 +67,9 @@ class CVMExcelAdapter(IngestionAdapter):
                 # Identify value columns
                 if section == "DMPL":
                     # For DMPL, we look for 'Patrimonio liquido Consolidado' or 'Patrimonio Liquido'
-                    val_col = "Patrimonio liquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
+                    val_col = "Patrimônio líquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimônio Líquido"
+                    if val_col not in df.columns:
+                        val_col = "Patrimonio liquido Consolidado" if config.entity_type == EntityType.CONSOLIDATED else "Patrimonio Liquido"
                     if val_col in df.columns:
                         val = get_val(row, val_col)
                         if pd.notna(val):
@@ -85,11 +89,11 @@ class CVMExcelAdapter(IngestionAdapter):
                     
                     if is_trim:
                         if section in ("ATIVO", "PASSIVO"):
-                            val_atual = get_val(row, "Valor Trimestre Atual")
-                            val_ant = get_val(row, "Valor Exercicio Anterior")
+                            val_atual = get_val(row, "Valor Trimestre Atual", "Valor Ultimo Exercicio")
+                            val_ant = get_val(row, "Valor Exercicio Anterior", "Valor Penultimo Exercicio")
                         else:
-                            val_atual = get_val(row, "Valor Acumulado Atual Exercicio")
-                            val_ant = get_val(row, "Valor Acumulado Exercicio Anterior")
+                            val_atual = get_val(row, "Valor Acumulado Atual Exercicio", "Valor Ultimo Exercicio")
+                            val_ant = get_val(row, "Valor Acumulado Exercicio Anterior", "Valor Penultimo Exercicio")
                     else:
                         val_atual = get_val(row, "Valor Ultimo Exercicio")
                         val_ant = get_val(row, "Valor Penultimo Exercicio")
